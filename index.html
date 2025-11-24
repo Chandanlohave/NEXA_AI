@@ -2,15 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
+    
+    <!-- PWA Settings for Android -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="NEXA">
+    
+    <!-- PWA Settings for iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="NEXA">
+    
     <title>NEXA AI</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3616/3616927.png" />
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3616/3616927.png" />
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -21,7 +29,7 @@
                 400: '#22d3ee',
                 500: '#06b6d4',
                 glow: '#29dfff',
-                jarvis: '#00f3ff', // The specific Iron Man Cyan
+                jarvis: '#00f3ff',
                 dim: 'rgba(0, 243, 255, 0.05)',
               },
               nexa: {
@@ -38,6 +46,7 @@
               'scanline': 'scanline 8s linear infinite',
               'float': 'float 6s ease-in-out infinite',
               'flicker': 'flicker 2s infinite',
+              'fadeIn': 'fadeIn 0.5s ease-out forwards',
             },
             keyframes: {
               pulseGlow: {
@@ -55,6 +64,10 @@
               flicker: {
                 '0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100%': { opacity: 0.99 },
                 '20%, 21.999%, 63%, 63.999%, 65%, 69.999%': { opacity: 0.4 },
+              },
+              fadeIn: {
+                '0%': { opacity: 0 },
+                '100%': { opacity: 1 },
               }
             },
             fontFamily: {
@@ -73,8 +86,10 @@
         font-family: 'Rajdhani', sans-serif;
         overflow: hidden;
         overscroll-behavior: none;
-        height: 100dvh;
+        height: 100dvh; /* Dynamic Height for Android */
         width: 100vw;
+        margin: 0;
+        padding: 0;
       }
       /* Jarvis Blueprint Grid */
       .bg-jarvis-grid {
@@ -116,19 +131,20 @@
         margin-left: 2px;
         font-weight: bold;
       }
-      
-      /* Hexagon Path */
-      .clip-hex {
-        clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+
+      /* iOS Safe Area */
+      .safe-area-inset {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
       }
     </style>
 <script type="importmap">
 {
   "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
   }
 }
 </script>

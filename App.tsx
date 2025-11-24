@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { NexaState, UserProfile, UserRole } from './types';
 import { generateTextResponse, generateSpeech } from './services/geminiService';
@@ -239,9 +238,9 @@ export default function App() {
     return <LoginPanel onLogin={handleLogin} />;
   }
 
-  // 2. MAIN HUD SCREEN
+  // 2. MAIN HUD SCREEN - Using dvh for android sizing
   return (
-    <div className="relative h-full w-full flex flex-col items-center justify-between p-4 bg-transparent safe-area-inset">
+    <div className="relative h-[100dvh] w-full flex flex-col items-center justify-between p-4 bg-transparent safe-area-inset overflow-hidden">
        
        {/* SETTINGS BUTTON (Top Right) */}
        <button 
@@ -323,8 +322,8 @@ export default function App() {
          </div>
        )}
 
-       {/* TOP SECTION: HUD (40%) */}
-       <div className="flex-[0.4] w-full flex items-center justify-center scale-60 md:scale-75 transition-transform duration-500">
+       {/* TOP SECTION: HUD (40%) - Smaller Scale for Mobile */}
+       <div className="flex-[0.4] w-full flex items-center justify-center scale-50 md:scale-75 transition-transform duration-500 origin-center">
           <HUD state={nexaState} speed={hudSpeed} />
        </div>
 

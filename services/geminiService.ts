@@ -60,22 +60,21 @@ let aiInstance: GoogleGenAI | null = null;
 
 const getAI = (): GoogleGenAI => {
   if (!aiInstance) {
-    // Safety check for process.env to prevent browser crashes
     let apiKey = '';
+    // Extra safety for browser environments where process might be undefined
     try {
-        if (typeof process !== 'undefined' && process.env) {
-            apiKey = process.env.API_KEY || '';
+        // @ts-ignore
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            // @ts-ignore
+            apiKey = process.env.API_KEY;
         }
     } catch (e) {
-        console.warn("Error accessing process.env:", e);
+        console.warn("Could not access process.env, ensure API_KEY is set in build settings.");
     }
     
-    // In some build environments, process.env is replaced by string literals, so we try direct access as fallback
+    // Fallback if empty (should not happen if env vars are correct)
     if (!apiKey) {
-        try {
-            // @ts-ignore
-            apiKey = process.env.API_KEY; 
-        } catch (e) {}
+      console.error("CRITICAL: API_KEY NOT FOUND");
     }
 
     aiInstance = new GoogleGenAI({ apiKey: apiKey });
