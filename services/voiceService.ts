@@ -8,27 +8,41 @@ export class VoiceService {
     // Safety check for SSR or environments where window is undefined
     if (typeof window === 'undefined') return;
 
-    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (AudioContextClass) {
-      // Gemini TTS usually outputs 24kHz raw PCM
-      this.audioContext = new AudioContextClass({ sampleRate: 24000 });
+    try {
+        const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          // Gemini TTS usually outputs 24kHz raw PCM
+          this.audioContext = new AudioContextClass({ sampleRate: 24000 });
+        }
+    } catch (e) {
+        console.warn("AudioContext init failed (User interaction usually required first):", e);
     }
 
-    // @ts-ignore
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      this.recognition = new SpeechRecognition();
-      this.recognition.continuous = false;
-      this.recognition.lang = 'en-IN'; // Hinglish preference
-      this.recognition.interimResults = true;
-      this.recognition.maxAlternatives = 1;
+    try {
+        // @ts-ignore
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          this.recognition = new SpeechRecognition();
+          this.recognition.continuous = false;
+          this.recognition.lang = 'en-IN'; // Hinglish preference
+          this.recognition.interimResults = true;
+          this.recognition.maxAlternatives = 1;
+        }
+    } catch (e) {
+        console.warn("SpeechRecognition init failed:", e);
     }
   }
 
   async playAudio(base64Data: string, onStart: () => void, onEnded: () => void) {
     if (!this.audioContext) {
-        onEnded();
-        return;
+        // Try to re-init if it failed in constructor (e.g. needs user gesture)
+        const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+            this.audioContext = new AudioContextClass({ sampleRate: 24000 });
+        } else {
+            onEnded();
+            return;
+        }
     }
     
     if (this.audioContext.state === 'suspended') {

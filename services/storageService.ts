@@ -4,17 +4,40 @@ const STORAGE_KEY_USER = 'nexa_current_user';
 const STORAGE_KEY_USERS_DB = 'nexa_users_db';
 const STORAGE_KEY_ADMIN_MEM = 'nexa_admin_memory';
 
+const safeGet = (key: string) => {
+    try {
+        return localStorage.getItem(key);
+    } catch (e) {
+        console.error("Storage Access Error", e);
+        return null;
+    }
+}
+
+const safeSet = (key: string, value: string) => {
+    try {
+        localStorage.setItem(key, value);
+    } catch (e) {
+        console.error("Storage Write Error", e);
+    }
+}
+
+const safeRemove = (key: string) => {
+    try {
+        localStorage.removeItem(key);
+    } catch (e) {}
+}
+
 export const storageService = {
   // --- Auth ---
   login: (mobile: string): UserProfile | null => {
-    const db = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS_DB) || '{}');
+    const db = JSON.parse(safeGet(STORAGE_KEY_USERS_DB) || '{}');
     const user = db[mobile];
     if (user) {
       user.lastLogin = Date.now();
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      safeSet(STORAGE_KEY_USER, JSON.stringify(user));
       // Update DB
       db[mobile] = user;
-      localStorage.setItem(STORAGE_KEY_USERS_DB, JSON.stringify(db));
+      safeSet(STORAGE_KEY_USERS_DB, JSON.stringify(db));
       return user;
     }
     return null;
@@ -26,15 +49,15 @@ export const storageService = {
       mobile: 'ADMIN',
       role: UserRole.ADMIN,
       theme: 'Dark Neon',
-      chatHistory: JSON.parse(localStorage.getItem(STORAGE_KEY_ADMIN_MEM) || '[]'),
+      chatHistory: JSON.parse(safeGet(STORAGE_KEY_ADMIN_MEM) || '[]'),
       lastLogin: Date.now()
     };
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(adminProfile));
+    safeSet(STORAGE_KEY_USER, JSON.stringify(adminProfile));
     return adminProfile;
   },
 
   signup: (name: string, mobile: string): UserProfile => {
-    const db = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS_DB) || '{}');
+    const db = JSON.parse(safeGet(STORAGE_KEY_USERS_DB) || '{}');
     const newUser: UserProfile = {
       name,
       mobile,
@@ -44,18 +67,18 @@ export const storageService = {
       lastLogin: Date.now()
     };
     db[mobile] = newUser;
-    localStorage.setItem(STORAGE_KEY_USERS_DB, JSON.stringify(db));
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser));
+    safeSet(STORAGE_KEY_USERS_DB, JSON.stringify(db));
+    safeSet(STORAGE_KEY_USER, JSON.stringify(newUser));
     return newUser;
   },
 
   getCurrentUser: (): UserProfile | null => {
-    const data = localStorage.getItem(STORAGE_KEY_USER);
+    const data = safeGet(STORAGE_KEY_USER);
     return data ? JSON.parse(data) : null;
   },
 
   logout: () => {
-    localStorage.removeItem(STORAGE_KEY_USER);
+    safeRemove(STORAGE_KEY_USER);
   },
 
   // --- Memory ---
@@ -67,17 +90,17 @@ export const storageService = {
 
     // Persist
     if (user.role === UserRole.ADMIN) {
-      localStorage.setItem(STORAGE_KEY_ADMIN_MEM, JSON.stringify(user.chatHistory));
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      safeSet(STORAGE_KEY_ADMIN_MEM, JSON.stringify(user.chatHistory));
+      safeSet(STORAGE_KEY_USER, JSON.stringify(user));
     } else {
-      const db = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS_DB) || '{}');
+      const db = JSON.parse(safeGet(STORAGE_KEY_USERS_DB) || '{}');
       db[user.mobile] = user;
-      localStorage.setItem(STORAGE_KEY_USERS_DB, JSON.stringify(db));
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      safeSet(STORAGE_KEY_USERS_DB, JSON.stringify(db));
+      safeSet(STORAGE_KEY_USER, JSON.stringify(user));
     }
   },
 
   clearAdminMemory: () => {
-    localStorage.removeItem(STORAGE_KEY_ADMIN_MEM);
+    safeRemove(STORAGE_KEY_ADMIN_MEM);
   }
 };
