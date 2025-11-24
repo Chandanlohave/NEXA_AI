@@ -28,11 +28,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ text, isUser, isVisible, 
   }
 
   // LABEL LOGIC
-  let labelText = 'SYSTEM_LOG';
+  let labelText = 'SYSTEM';
   if (isUser) {
-    labelText = userRole === UserRole.ADMIN ? 'ADMIN_TERMINAL' : 'USER_TERMINAL';
+    labelText = userRole === UserRole.ADMIN ? 'ADMIN' : 'USER';
   } else {
-    labelText = 'NEXA_RESPONSE';
+    labelText = 'NEXA';
   }
 
   useEffect(() => {
@@ -73,8 +73,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ text, isUser, isVisible, 
        <div className={`absolute bottom-0 right-0 w-2 h-2 border-b border-r ${borderColor} opacity-80`}></div>
 
        {/* Label */}
-       <div className={`text-[9px] font-futuristic tracking-[0.3em] uppercase mb-2 opacity-60 w-full border-b ${borderColor} pb-1 flex justify-between`}>
-          <span>{labelText}</span>
+       <div className={`text-[10px] font-futuristic tracking-[0.3em] uppercase mb-2 opacity-80 w-full border-b ${borderColor} pb-1 flex justify-between`}>
+          <span className={isUser ? 'text-white' : textColor}>{labelText}</span>
           <span>{isUser ? '>>' : '<<'}</span>
        </div>
 
@@ -82,7 +82,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ text, isUser, isVisible, 
        <div className={`
          font-tech font-medium leading-relaxed tracking-wide text-left w-full
          ${isUser 
-            ? 'text-base text-white/80 italic' 
+            ? 'text-base text-white/90 italic' 
             : `text-lg ${textColor} drop-shadow-sm`
          }
        `}>

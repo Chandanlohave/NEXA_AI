@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { NexaState, UserProfile, UserRole } from './types';
 import { generateTextResponse, generateSpeech } from './services/geminiService';
@@ -81,6 +82,7 @@ export default function App() {
   const [hudSpeed, setHudSpeed] = useState(1);
   const [tempHudSpeed, setTempHudSpeed] = useState(1);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [applyStatus, setApplyStatus] = useState<'IDLE' | 'APPLIED'>('IDLE');
   
   const introPlayedRef = useRef(false);
 
@@ -137,7 +139,7 @@ export default function App() {
         () => {
           // ON END
           setNexaState(NexaState.IDLE);
-          // Don't hide chat immediately so user can read it
+          setShowChat(false); // Hide chat after speech ends
         }
       );
     } else {
@@ -148,6 +150,7 @@ export default function App() {
       setShowChat(true);
       setTimeout(() => {
           setNexaState(NexaState.IDLE);
+          setShowChat(false);
       }, 3000);
     }
   };
@@ -178,179 +181,172 @@ export default function App() {
       async (text, isFinal) => {
         setCurrentText(text);
         if (isFinal && user) {
-          setNexaState(NexaState.THINKING);
-          
-          const { text: responseText, actionPayload } = await generateTextResponse(text, user);
-          
-          await speakResponse(responseText);
-          
-          if (actionPayload.action !== 'NONE') {
-             setTimeout(() => {
-                intentService.execute(actionPayload);
-             }, 1000); 
-          }
+            setNexaState(NexaState.THINKING);
+            setIsUserText(true);
+            
+            // Generate Response
+            const response = await generateTextResponse(text, user);
+            
+            // Execute Intent
+            if (response.actionPayload.action !== 'NONE') {
+                intentService.execute(response.actionPayload);
+            }
+            
+            // Speak Response
+            await speakResponse(response.text);
+            
+            // Save to Memory
+            storageService.saveChat(user, { text: text, sender: 'user', timestamp: Date.now() });
+            storageService.saveChat(user, { text: response.text, sender: 'nexa', timestamp: Date.now() });
         }
       },
       () => {
-        // On Error / Stop
-        setNexaState(NexaState.IDLE);
+          setNexaState(NexaState.IDLE);
+          setShowChat(false);
       }
     );
+  };
+
+  const handleLogin = (u: UserProfile) => {
+    setUser(u);
   };
 
   const handleLogout = () => {
     storageService.logout();
     setUser(null);
     setNexaState(NexaState.IDLE);
-    setShowChat(false);
     setShowSettings(false);
-    introPlayedRef.current = false;
+    introPlayedRef.current = false; // Reset intro for next login
   };
 
-  const deleteUser = (mobile: string) => {
-    if (confirm("WARNING: Are you sure you want to delete this user?")) {
+  const handleApplyConfig = () => {
+    setHudSpeed(tempHudSpeed);
+    setApplyStatus('APPLIED');
+    setTimeout(() => setApplyStatus('IDLE'), 2000);
+  };
+
+  const handleDeleteUser = (mobile: string) => {
+    if (confirm(`Are you sure you want to delete user ${mobile}?`)) {
         storageService.deleteUser(mobile);
-        setAllUsers(prev => prev.filter(u => u.mobile !== mobile));
+        setAllUsers(storageService.getAllUsers());
     }
   };
 
-  const applyAdminSettings = () => {
-      setHudSpeed(tempHudSpeed);
-      // alert("CONFIGURATION UPDATED");
-  };
+  // --- RENDER ---
 
+  // 1. LOGIN SCREEN
   if (!user) {
-    return <LoginPanel onLogin={(u) => { setUser(u); }} />;
+    return <LoginPanel onLogin={handleLogin} />;
   }
 
+  // 2. MAIN HUD SCREEN
   return (
-    <div className="h-[100dvh] w-full bg-black bg-jarvis-grid flex flex-col relative font-sans text-white overflow-hidden transition-colors duration-500">
-      
-      {/* GLOBAL OVERLAYS */}
-      <div className="scanline"></div>
-      <div className="vignette"></div>
+    <div className="relative h-full w-full flex flex-col items-center justify-between p-4 bg-transparent safe-area-inset">
+       
+       {/* SETTINGS BUTTON (Top Right) */}
+       <button 
+         onClick={() => setShowSettings(true)}
+         className="absolute top-4 right-4 z-40 text-cyan-500 hover:text-cyan-300 opacity-60 hover:opacity-100 transition-opacity"
+       >
+         <SettingsIcon />
+       </button>
 
-      {/* --- SETTINGS BUTTON --- */}
-      <button 
-        onClick={() => { setShowSettings(true); setTempHudSpeed(hudSpeed); }}
-        className="absolute top-4 right-4 z-50 text-cyan-500/50 hover:text-cyan-400 p-2 border border-cyan-500/20 bg-black/40 rounded-full backdrop-blur-sm"
-      >
-        <SettingsIcon />
-      </button>
+       {/* SETTINGS MODAL */}
+       {showSettings && (
+         <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-fadeIn">
+            <div className="w-full max-w-md bg-nexa-panel border border-cyan-500/30 p-6 shadow-[0_0_50px_rgba(41,223,255,0.1)] relative">
+                <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XIcon /></button>
+                
+                <h2 className="text-xl font-futuristic text-cyan-400 mb-6 tracking-widest border-b border-cyan-900 pb-2">
+                    {user.role === UserRole.ADMIN ? 'ADMIN CONSOLE' : 'USER SETTINGS'}
+                </h2>
 
-      {/* --- SETTINGS MODAL --- */}
-      {showSettings && (
-        <div className="absolute inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-6">
-           <div className="w-full max-w-sm max-h-[80vh] overflow-y-auto border border-cyan-500/30 bg-black/90 p-6 relative shadow-[0_0_30px_rgba(34,211,238,0.2)] scrollbar-hide">
-               <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XIcon /></button>
-               
-               {/* ADMIN SETTINGS PANEL */}
-               {user.role === UserRole.ADMIN ? (
-                 <>
-                    <h2 className="text-xl font-futuristic text-red-500 mb-6 border-b border-red-900 pb-2">ADMIN CONTROL PANEL</h2>
-                    
-                    {/* Speed Control */}
-                    <div className="mb-6">
-                        <label className="text-xs font-bold text-red-400 tracking-widest block mb-2">HUD ROTATION SPEED</label>
-                        <div className="flex items-center gap-4">
-                            <input 
-                                type="range" 
-                                min="0.1" max="5" step="0.1" 
-                                value={tempHudSpeed} 
-                                onChange={(e) => setTempHudSpeed(parseFloat(e.target.value))}
-                                className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500"
-                            />
-                            <span className="font-mono text-red-300 w-8">{tempHudSpeed}x</span>
-                        </div>
+                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+                    {/* PROFILE INFO */}
+                    <div className="bg-cyan-950/20 p-4 border-l-2 border-cyan-500">
+                        <p className="text-xs text-cyan-600 uppercase tracking-widest">Identity</p>
+                        <p className="text-lg text-white font-mono">{user.name}</p>
+                        <p className="text-sm text-cyan-300 font-mono">{user.mobile}</p>
+                        <span className="inline-block mt-2 px-2 py-0.5 bg-cyan-900/50 text-[10px] text-cyan-400 border border-cyan-700">{user.role}</span>
                     </div>
 
-                    {/* Apply Button */}
-                    <button 
-                        onClick={applyAdminSettings}
-                        className="w-full mb-8 bg-red-500/20 border border-red-500 text-red-400 font-bold p-2 tracking-widest hover:bg-red-500/40"
-                    >
-                        APPLY CONFIG
-                    </button>
+                    {/* ADMIN ONLY CONTROLS */}
+                    {user.role === UserRole.ADMIN && (
+                        <>
+                           {/* Speed Control */}
+                           <div className="space-y-2">
+                               <label className="text-xs text-cyan-500 uppercase tracking-widest flex justify-between">
+                                  <span>HUD Rotation Speed</span>
+                                  <span>{tempHudSpeed}x</span>
+                               </label>
+                               <input 
+                                 type="range" min="0.5" max="5" step="0.5" 
+                                 value={tempHudSpeed} 
+                                 onChange={(e) => setTempHudSpeed(parseFloat(e.target.value))}
+                                 className="w-full h-1 bg-cyan-900 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-cyan-400 [&::-webkit-slider-thumb]:rounded-full"
+                               />
+                               <button 
+                                 onClick={handleApplyConfig}
+                                 className={`w-full py-2 text-xs font-bold tracking-widest border ${applyStatus === 'APPLIED' ? 'border-green-500 text-green-400 bg-green-900/20' : 'border-cyan-500 text-cyan-400 hover:bg-cyan-900/20'} transition-all`}
+                               >
+                                 {applyStatus === 'APPLIED' ? 'CONFIGURATION UPDATED' : 'APPLY CONFIG'}
+                               </button>
+                           </div>
 
-                    {/* User Management */}
-                    <h3 className="text-xs font-bold text-gray-500 tracking-widest mb-3 uppercase">Registered Users Database</h3>
-                    <div className="space-y-2 mb-6 max-h-40 overflow-y-auto border border-gray-800 p-2">
-                        {allUsers.length === 0 && <p className="text-gray-600 text-xs italic">No users found.</p>}
-                        {allUsers.map(u => (
-                            <div key={u.mobile} className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-800">
-                                <div>
-                                    <div className="text-xs font-bold text-cyan-400">{u.name}</div>
-                                    <div className="text-[10px] text-gray-500 font-mono">{u.mobile}</div>
-                                </div>
-                                {u.role !== UserRole.ADMIN && (
-                                    <button onClick={() => deleteUser(u.mobile)} className="text-red-900 hover:text-red-500 p-1">
-                                        <TrashIcon />
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                 </>
-               ) : (
-                 /* USER SETTINGS PANEL */
-                 <>
-                    <h2 className="text-xl font-futuristic text-cyan-400 mb-6 border-b border-cyan-900 pb-2">USER CONFIG</h2>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center text-sm font-tech tracking-widest text-gray-400">
-                            <span>IDENTITY</span>
-                            <span className="text-white">{user.name}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm font-tech tracking-widest text-gray-400">
-                            <span>MOBILE</span>
-                            <span className="text-white font-mono">{user.mobile}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm font-tech tracking-widest text-gray-400">
-                            <span>ACCESS LEVEL</span>
-                            <span className="text-cyan-400">STANDARD</span>
-                        </div>
-                    </div>
-                 </>
-               )}
-               
-               <div className="h-px bg-gray-800 my-4"></div>
+                           {/* User Database */}
+                           <div className="space-y-3">
+                               <p className="text-xs text-red-400 uppercase tracking-widest border-b border-red-900/30 pb-1">User Database</p>
+                               {allUsers.length === 0 && <p className="text-xs text-gray-600 italic">No registered users.</p>}
+                               {allUsers.map(u => (
+                                   <div key={u.mobile} className="flex items-center justify-between bg-black/40 p-2 border border-gray-800">
+                                       <div>
+                                           <p className="text-sm text-gray-300 font-mono">{u.name}</p>
+                                           <p className="text-[10px] text-gray-500">{u.mobile} | {u.role}</p>
+                                       </div>
+                                       {u.mobile !== 'ADMIN' && (
+                                           <button onClick={() => handleDeleteUser(u.mobile)} className="text-red-500 hover:bg-red-900/20 p-2 rounded"><TrashIcon /></button>
+                                       )}
+                                   </div>
+                               ))}
+                           </div>
+                        </>
+                    )}
+                </div>
 
-               <button 
-                 onClick={handleLogout}
-                 className="w-full bg-red-900/10 border border-red-900/30 p-3 text-red-800 font-bold tracking-[0.2em] hover:bg-red-900/30 hover:text-red-500 transition-colors"
-               >
-                 TERMINATE SESSION
-               </button>
-           </div>
-        </div>
-      )}
-
-      {/* --- HUD SECTION (TOP 40%) - SCALED DOWN --- */}
-      <div className="h-[40%] flex items-center justify-center relative z-10 pt-10 safe-top">
-         {/* Reduced scale to 60% on mobile */}
-         <div className="scale-60 md:scale-75 transition-transform duration-500">
-            <HUD state={nexaState} speed={hudSpeed} />
+                <button 
+                  onClick={handleLogout}
+                  className="w-full mt-6 py-3 border border-red-500/50 text-red-500 hover:bg-red-900/20 hover:text-red-400 font-bold tracking-[0.2em] text-sm transition-all shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                >
+                  SYSTEM LOGOUT
+                </button>
+            </div>
          </div>
-      </div>
+       )}
 
-      {/* --- CHAT SECTION (MIDDLE 35%) --- */}
-      <div className="h-[35%] flex flex-col items-center justify-center w-full px-4 relative z-20">
+       {/* TOP SECTION: HUD (40%) */}
+       <div className="flex-[0.4] w-full flex items-center justify-center scale-60 md:scale-75 transition-transform duration-500">
+          <HUD state={nexaState} speed={hudSpeed} />
+       </div>
+
+       {/* MIDDLE SECTION: CHAT (35%) */}
+       <div className="flex-[0.35] w-full flex items-center justify-center px-4">
           <ChatInterface 
-            text={currentText} 
-            isUser={isUserText} 
-            isVisible={showChat} 
-            state={nexaState} 
+            text={currentText}
+            isUser={isUserText}
+            isVisible={showChat}
+            state={nexaState}
             userRole={user.role}
           />
-      </div>
+       </div>
 
-      {/* --- MIC SECTION (BOTTOM 25%) --- */}
-      <div className="h-[25%] flex flex-col items-center justify-center relative z-30 pb-8 safe-bottom">
-         <HoloMicButton 
-            active={nexaState !== NexaState.IDLE} 
-            state={nexaState} 
-            onClick={toggleMicInteraction}
-         />
-      </div>
+       {/* BOTTOM SECTION: MIC (25%) */}
+       <div className="flex-[0.25] w-full flex items-center justify-center pb-8">
+          <HoloMicButton 
+             active={nexaState === NexaState.LISTENING} 
+             state={nexaState}
+             onClick={toggleMicInteraction} 
+          />
+       </div>
 
     </div>
   );
