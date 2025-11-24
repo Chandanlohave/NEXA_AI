@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>NEXA AI</title>
+    <link rel="manifest" href="manifest.json" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              cyan: {
+                400: '#22d3ee',
+                500: '#06b6d4',
+                glow: '#29dfff',
+                jarvis: '#00f3ff', // The specific Iron Man Cyan
+                dim: 'rgba(0, 243, 255, 0.05)',
+              },
+              nexa: {
+                black: '#050505',
+                panel: 'rgba(10, 10, 10, 0.95)',
+              }
+            },
+            animation: {
+              'spin-slow': 'spin 12s linear infinite',
+              'spin-slower': 'spin 25s linear infinite',
+              'spin-reverse': 'spin 15s linear infinite reverse',
+              'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'pulse-glow': 'pulseGlow 3s infinite',
+              'scanline': 'scanline 8s linear infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'flicker': 'flicker 2s infinite',
+            },
+            keyframes: {
+              pulseGlow: {
+                '0%, 100%': { boxShadow: '0 0 10px #00f3ff, 0 0 20px rgba(0, 243, 255, 0.2)' },
+                '50%': { boxShadow: '0 0 25px #00f3ff, 0 0 40px rgba(0, 243, 255, 0.4)' },
+              },
+              scanline: {
+                '0%': { transform: 'translateY(-100%)' },
+                '100%': { transform: 'translateY(100%)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              flicker: {
+                '0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100%': { opacity: 0.99 },
+                '20%, 21.999%, 63%, 63.999%, 65%, 69.999%': { opacity: 0.4 },
+              }
+            },
+            fontFamily: {
+              futuristic: ['Orbitron', 'sans-serif'],
+              tech: ['Rajdhani', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background-color: #02040a;
+        color: #fff;
+        font-family: 'Rajdhani', sans-serif;
+        overflow: hidden;
+        overscroll-behavior: none;
+        height: 100dvh;
+        width: 100vw;
+      }
+      /* Jarvis Blueprint Grid */
+      .bg-jarvis-grid {
+        background-size: 40px 40px;
+        background-image:
+          linear-gradient(to right, rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+        mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+      }
+      
+      .scanline {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.5) 51%);
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 50;
+        opacity: 0.15;
+      }
+      
+      .vignette {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle at center, transparent 30%, #000 95%);
+        pointer-events: none;
+        z-index: 10;
+      }
+      
+      .typing-cursor::after {
+        content: '_';
+        animation: pulse 0.8s infinite;
+        color: #00f3ff;
+        margin-left: 2px;
+        font-weight: bold;
+      }
+      
+      /* Hexagon Path */
+      .clip-hex {
+        clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

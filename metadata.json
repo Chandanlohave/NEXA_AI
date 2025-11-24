@@ -1,0 +1,8 @@
+{
+  "name": "NEXA AI",
+  "description": "Futuristic Mobile AI Assistant NEXA. Complete System.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
