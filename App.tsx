@@ -323,7 +323,7 @@ export default function App() {
        )}
 
        {/* TOP SECTION: HUD (40%) - Smaller Scale for Mobile */}
-       <div className="flex-[0.4] w-full flex items-center justify-center scale-50 md:scale-75 transition-transform duration-500 origin-center">
+       <div className="flex-[0.4] w-full flex items-center justify-center scale-50 transition-transform duration-500 origin-center">
           <HUD state={nexaState} speed={hudSpeed} />
        </div>
 
