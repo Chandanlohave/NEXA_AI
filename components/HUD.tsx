@@ -3,9 +3,10 @@ import { NexaState } from '../types';
 
 interface HUDProps {
   state: NexaState;
+  speed: number;
 }
 
-const HUD: React.FC<HUDProps> = ({ state }) => {
+const HUD: React.FC<HUDProps> = ({ state, speed }) => {
   // Color Logic
   let primaryColor = '#00f3ff'; // Jarvis Cyan
   
@@ -14,6 +15,12 @@ const HUD: React.FC<HUDProps> = ({ state }) => {
   } else if (state === NexaState.THINKING) {
     primaryColor = '#f59e0b'; // Amber
   }
+
+  // Calculate durations based on speed multiplier
+  // Default speed = 1. Higher speed = faster animation (lower duration)
+  const slowDur = 60 / speed;
+  const medDur = 40 / speed;
+  const fastDur = 20 / speed;
 
   // Inject styles for strictly linear animation
   const styles = `
@@ -26,15 +33,15 @@ const HUD: React.FC<HUDProps> = ({ state }) => {
       to { transform: rotate(0deg); }
     }
     .hud-spin-slow {
-      animation: spin-linear 60s linear infinite;
+      animation: spin-linear ${slowDur}s linear infinite;
       transform-origin: center;
     }
     .hud-spin-medium {
-      animation: spin-linear-reverse 40s linear infinite;
+      animation: spin-linear-reverse ${medDur}s linear infinite;
       transform-origin: center;
     }
     .hud-spin-fast {
-      animation: spin-linear 20s linear infinite;
+      animation: spin-linear ${fastDur}s linear infinite;
       transform-origin: center;
     }
   `;
@@ -43,8 +50,8 @@ const HUD: React.FC<HUDProps> = ({ state }) => {
     <div className="relative w-full h-full flex items-center justify-center pointer-events-none select-none">
       <style>{styles}</style>
       
-      {/* Container - Scaled for visibility */}
-      <div className="relative w-[320px] h-[320px] md:w-[400px] md:h-[400px]">
+      {/* Container - Reduced Size */}
+      <div className="relative w-[260px] h-[260px] md:w-[320px] md:h-[320px]">
         
         <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 500 500">
           <defs>

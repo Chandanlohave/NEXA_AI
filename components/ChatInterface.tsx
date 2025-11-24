@@ -1,27 +1,38 @@
-
 import React, { useState, useEffect } from 'react';
-import { NexaState } from '../types';
+import { NexaState, UserRole } from '../types';
 
 interface ChatInterfaceProps {
   text: string;
   isUser: boolean;
   isVisible: boolean;
   state: NexaState;
+  userRole: UserRole;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ text, isUser, isVisible, state }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ text, isUser, isVisible, state, userRole }) => {
   const [displayedText, setDisplayedText] = useState('');
   
   // DYNAMIC COLOR
+  let borderColor = 'border-cyan-500/30';
   let textColor = 'text-cyan-400';
-  let glowEffect = 'drop-shadow-[0_0_15px_rgba(34,211,238,0.9)]'; // Increased Glow
+  let bgColor = 'bg-cyan-950/20';
 
   if (state === NexaState.LISTENING) {
-     textColor = 'text-red-500';
-     glowEffect = 'drop-shadow-[0_0_15px_rgba(239,68,68,0.9)]';
+     borderColor = 'border-red-500/30';
+     textColor = 'text-red-400';
+     bgColor = 'bg-red-950/20';
   } else if (state === NexaState.THINKING) {
+     borderColor = 'border-amber-500/30';
      textColor = 'text-amber-400';
-     glowEffect = 'drop-shadow-[0_0_15px_rgba(251,191,36,0.9)]';
+     bgColor = 'bg-amber-950/20';
+  }
+
+  // LABEL LOGIC
+  let labelText = 'SYSTEM_LOG';
+  if (isUser) {
+    labelText = userRole === UserRole.ADMIN ? 'ADMIN_TERMINAL' : 'USER_TERMINAL';
+  } else {
+    labelText = 'NEXA_RESPONSE';
   }
 
   useEffect(() => {
@@ -47,22 +58,32 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ text, isUser, isVisible, 
     }
   }, [text, isUser, isVisible]);
 
-  if (!isVisible) return null;
+  if (!isVisible && !displayedText) return null;
 
   return (
-    <div className="w-full max-w-md text-center pointer-events-none transition-all duration-300 flex flex-col items-center justify-center">
-       
+    <div className={`
+      w-full max-w-sm transition-all duration-300 flex flex-col items-start
+      border ${borderColor} ${bgColor} backdrop-blur-sm p-4 rounded-lg relative overflow-hidden
+      shadow-[0_0_20px_rgba(0,0,0,0.3)]
+    `}>
+       {/* Corner Accents */}
+       <div className={`absolute top-0 left-0 w-2 h-2 border-t border-l ${borderColor} opacity-80`}></div>
+       <div className={`absolute top-0 right-0 w-2 h-2 border-t border-r ${borderColor} opacity-80`}></div>
+       <div className={`absolute bottom-0 left-0 w-2 h-2 border-b border-l ${borderColor} opacity-80`}></div>
+       <div className={`absolute bottom-0 right-0 w-2 h-2 border-b border-r ${borderColor} opacity-80`}></div>
+
        {/* Label */}
-       <div className={`text-[10px] font-futuristic tracking-[0.4em] uppercase mb-4 opacity-70 border-b border-opacity-40 pb-1 ${textColor} border-current inline-block`}>
-          {isUser ? 'AUDIO_INPUT' : 'NEXA_LOG'}
+       <div className={`text-[9px] font-futuristic tracking-[0.3em] uppercase mb-2 opacity-60 w-full border-b ${borderColor} pb-1 flex justify-between`}>
+          <span>{labelText}</span>
+          <span>{isUser ? '>>' : '<<'}</span>
        </div>
 
        {/* Main Text */}
        <div className={`
-         font-tech font-medium leading-relaxed tracking-wider transition-all
+         font-tech font-medium leading-relaxed tracking-wide text-left w-full
          ${isUser 
-            ? 'text-lg text-white/90 italic' 
-            : `text-xl md:text-2xl ${textColor} ${glowEffect}`
+            ? 'text-base text-white/80 italic' 
+            : `text-lg ${textColor} drop-shadow-sm`
          }
        `}>
           {isUser ? `"${displayedText}"` : <span className="typing-cursor">{displayedText}</span>}

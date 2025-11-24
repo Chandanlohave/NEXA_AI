@@ -1,14 +1,21 @@
-import React from 'react';
+import React, { ReactNode, ErrorInfo, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
+// Global Error Handler for non-React errors (Script failures, Syntax errors)
+window.onerror = function(message, source, lineno, colno, error) {
+  document.body.innerHTML = `
+    <div style="background:black; color:red; padding:20px; font-family:monospace; height:100vh;">
+      <h1>CRITICAL BOOT FAILURE</h1>
+      <p>${message}</p>
+      <p>Source: ${source}:${lineno}</p>
+      <button onclick="window.location.reload()" style="padding:10px; background:cyan; border:none; margin-top:20px;">RETRY</button>
+    </div>
+  `;
+};
 
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -17,17 +24,14 @@ interface ErrorBoundaryState {
 }
 
 // ERROR BOUNDARY COMPONENT
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("NEXA SYSTEM CRITICAL FAILURE:", error, errorInfo);
   }
 
@@ -38,21 +42,32 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             backgroundColor: '#000', 
             color: '#0ff', 
             height: '100vh', 
+            width: '100vw',
             display: 'flex', 
             flexDirection: 'column', 
             alignItems: 'center', 
             justifyContent: 'center', 
             padding: '20px', 
-            fontFamily: 'monospace'
+            fontFamily: 'monospace',
+            textAlign: 'center'
         }}>
-          <h1 style={{fontSize: '2rem', marginBottom: '10px'}}>SYSTEM FAILURE</h1>
-          <p style={{color: 'red'}}>CRITICAL ERROR DETECTED</p>
-          <pre style={{marginTop: '20px', color: '#fff', whiteSpace: 'pre-wrap', maxWidth: '100%'}}>
-            {this.state.error?.toString()}
+          <h1 style={{fontSize: '2rem', marginBottom: '10px', color: 'red', borderBottom: '1px solid red'}}>SYSTEM FAILURE</h1>
+          <p style={{color: '#fff', marginBottom: '20px'}}>CRITICAL ERROR DETECTED</p>
+          <pre style={{
+            marginTop: '20px', 
+            color: '#0f0', 
+            whiteSpace: 'pre-wrap', 
+            maxWidth: '90%', 
+            textAlign: 'left', 
+            background: '#111', 
+            padding: '10px',
+            border: '1px solid #333'
+          }}>
+            {this.state.error ? this.state.error.toString() : "Unknown Error"}
           </pre>
           <button 
             onClick={() => window.location.reload()}
-            style={{marginTop: '30px', padding: '10px 20px', background: '#0ff', color: '#000', border: 'none', fontWeight: 'bold'}}
+            style={{marginTop: '30px', padding: '15px 30px', background: '#0ff', color: '#000', border: 'none', fontWeight: 'bold', cursor: 'pointer'}}
           >
             REBOOT SYSTEM
           </button>
@@ -78,11 +93,27 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+// Safe Mount Function
+const mountApp = () => {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    console.error("Root element not found");
+    return;
+  }
+  
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+};
+
+// Ensure DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountApp);
+} else {
+  mountApp();
+}

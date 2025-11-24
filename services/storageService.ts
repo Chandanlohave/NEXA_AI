@@ -81,6 +81,20 @@ export const storageService = {
     safeRemove(STORAGE_KEY_USER);
   },
 
+  // --- Admin User Management ---
+  getAllUsers: (): UserProfile[] => {
+    const db = JSON.parse(safeGet(STORAGE_KEY_USERS_DB) || '{}');
+    return Object.values(db);
+  },
+
+  deleteUser: (mobile: string) => {
+    const db = JSON.parse(safeGet(STORAGE_KEY_USERS_DB) || '{}');
+    if (db[mobile]) {
+        delete db[mobile];
+        safeSet(STORAGE_KEY_USERS_DB, JSON.stringify(db));
+    }
+  },
+
   // --- Memory ---
   saveChat: (user: UserProfile, message: ChatMessage) => {
     // Update local object

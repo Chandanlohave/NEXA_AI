@@ -2,10 +2,6 @@ import { GoogleGenAI, Modality, FunctionDeclaration, Type } from "@google/genai"
 import { SYSTEM_INSTRUCTION_ADMIN, SYSTEM_INSTRUCTION_USER } from "../constants";
 import { UserProfile, UserRole, ActionPayload } from "../types";
 
-// Safe initialization to prevent "process is not defined" crashes in browser environments
-const apiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : '';
-const ai = new GoogleGenAI({ apiKey });
-
 // --- TOOL DEFINITIONS ---
 
 const openAppTool: FunctionDeclaration = {
@@ -59,6 +55,34 @@ const setAlarmTool: FunctionDeclaration = {
   }
 };
 
+// Singleton instance, lazy loaded
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = (): GoogleGenAI => {
+  if (!aiInstance) {
+    // Safety check for process.env to prevent browser crashes
+    let apiKey = '';
+    try {
+        if (typeof process !== 'undefined' && process.env) {
+            apiKey = process.env.API_KEY || '';
+        }
+    } catch (e) {
+        console.warn("Error accessing process.env:", e);
+    }
+    
+    // In some build environments, process.env is replaced by string literals, so we try direct access as fallback
+    if (!apiKey) {
+        try {
+            // @ts-ignore
+            apiKey = process.env.API_KEY; 
+        } catch (e) {}
+    }
+
+    aiInstance = new GoogleGenAI({ apiKey: apiKey });
+  }
+  return aiInstance;
+};
+
 export interface GenResponse {
   text: string;
   actionPayload: ActionPayload;
@@ -66,6 +90,8 @@ export interface GenResponse {
 
 export const generateTextResponse = async (prompt: string, user: UserProfile): Promise<GenResponse> => {
   try {
+    const ai = getAI();
+    
     // 1. Setup Context
     const systemInstruction = user.role === UserRole.ADMIN 
       ? SYSTEM_INSTRUCTION_ADMIN 
@@ -95,39 +121,25 @@ export const generateTextResponse = async (prompt: string, user: UserProfile): P
     });
 
     // 3. Parse Response
-    const candidate = response.candidates?.[0];
-    let spokenText = "";
+    let spokenText = response.text || "";
     let actionPayload: ActionPayload = { action: 'NONE' };
 
-    // Extract Text parts
-    if (candidate?.content?.parts) {
-      for (const part of candidate.content.parts) {
-        if (part.text) {
-          spokenText += part.text;
-        }
-      }
-    }
-
-    // Extract Function Calls
-    if (candidate?.content?.parts) {
-        for (const part of candidate.content.parts) {
-            if (part.functionCall) {
-                const fc = part.functionCall;
-                if (fc.name === 'openApp') {
-                    actionPayload = { action: 'OPEN_APP', data: fc.args };
-                } else if (fc.name === 'makeCall') {
-                    actionPayload = { action: 'CALL', data: fc.args };
-                } else if (fc.name === 'sendWhatsApp') {
-                    actionPayload = { action: 'WHATSAPP', data: fc.args };
-                } else if (fc.name === 'setAlarm') {
-                    actionPayload = { action: 'ALARM', data: fc.args };
-                }
+    if (response.functionCalls && response.functionCalls.length > 0) {
+        for (const fc of response.functionCalls) {
+            if (fc.name === 'openApp') {
+                actionPayload = { action: 'OPEN_APP', data: fc.args };
+            } else if (fc.name === 'makeCall') {
+                actionPayload = { action: 'CALL', data: fc.args };
+            } else if (fc.name === 'sendWhatsApp') {
+                actionPayload = { action: 'WHATSAPP', data: fc.args };
+            } else if (fc.name === 'setAlarm') {
+                actionPayload = { action: 'ALARM', data: fc.args };
             }
+            if (actionPayload.action !== 'NONE') break;
         }
     }
 
     if (!spokenText && actionPayload.action !== 'NONE') {
-        // Fallback text if model only returned tool call
         spokenText = "Okay sir, processing...";
     }
 
@@ -146,9 +158,14 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
   if (!text) return null;
 
   try {
+    const ai = getAI();
+    
+    // PHONETIC REPLACEMENT LAYER
+    const speechText = text.replace(/Lohave/gi, "लोहवे");
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: text }] }],
+      contents: [{ parts: [{ text: speechText }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
