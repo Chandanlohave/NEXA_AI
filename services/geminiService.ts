@@ -2,7 +2,8 @@ import { GoogleGenAI, Modality, FunctionDeclaration, Type } from "@google/genai"
 import { SYSTEM_INSTRUCTION_ADMIN, SYSTEM_INSTRUCTION_USER } from "../constants";
 import { UserProfile, UserRole, ActionPayload } from "../types";
 
-const apiKey = process.env.API_KEY || '';
+// Safe initialization to prevent "process is not defined" crashes in browser environments
+const apiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : '';
 const ai = new GoogleGenAI({ apiKey });
 
 // --- TOOL DEFINITIONS ---
@@ -90,7 +91,6 @@ export const generateTextResponse = async (prompt: string, user: UserProfile): P
         systemInstruction: systemInstruction,
         temperature: 0.9,
         tools: [{ functionDeclarations: [openAppTool, makeCallTool, sendWhatsAppTool, setAlarmTool] }],
-        // toolConfig removed: 'AUTO' is default, and string assignment causes type error
       },
     });
 

@@ -5,6 +5,9 @@ export class VoiceService {
   private gainNode: GainNode | null = null;
 
   constructor() {
+    // Safety check for SSR or environments where window is undefined
+    if (typeof window === 'undefined') return;
+
     const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (AudioContextClass) {
       // Gemini TTS usually outputs 24kHz raw PCM
