@@ -95,11 +95,22 @@ export const generateTextResponse = async (prompt: string, user: UserProfile): P
     const timeString = now.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
     const dateString = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+    // --- MEMORY INTEGRATION ---
+    // Retrieve last 15 messages to provide context
+    const recentHistory = user.chatHistory.slice(-15);
+    const memoryString = recentHistory.map(msg => 
+        `[${msg.sender === 'user' ? 'USER' : 'NEXA'}]: ${msg.text}`
+    ).join('\n');
+
     const fullPrompt = `
       [CURRENT TIME: ${timeString}]
       [CURRENT DATE: ${dateString}]
       [USER NAME: ${user.name}]
       
+      === CONVERSATION HISTORY (MEMORY) ===
+      ${memoryString}
+      =====================================
+
       USER INPUT: "${prompt}"
     `;
 
