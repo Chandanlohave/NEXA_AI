@@ -1,17 +1,20 @@
-import React, { ReactNode, ErrorInfo } from 'react';
-import ReactDOM from 'react-dom/client';
+
+import React, { Component, ReactNode, ErrorInfo } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App';
 
-// Global Error Handler for non-React errors (Script failures, Syntax errors)
+// Global Error Handler
 window.onerror = function(message, source, lineno, colno, error) {
-  document.body.innerHTML = `
-    <div style="background:black; color:red; padding:20px; font-family:monospace; height:100vh;">
-      <h1>CRITICAL BOOT FAILURE</h1>
-      <p>${message}</p>
-      <p>Source: ${source}:${lineno}</p>
-      <button onclick="window.location.reload()" style="padding:10px; background:cyan; border:none; margin-top:20px;">RETRY</button>
-    </div>
-  `;
+  // Only show full crash report if it's not a minor warning
+  if (document.body) {
+      document.body.innerHTML = `
+        <div style="background:black; color:red; padding:20px; font-family:monospace; height:100vh; display:flex; flex-direction:column; justify-content:center;">
+          <h1 style="border-bottom:1px solid red; padding-bottom:10px;">SYSTEM FAILURE</h1>
+          <p style="color:cyan;">${message}</p>
+          <button onclick="window.location.reload()" style="padding:15px; background:cyan; color:black; border:none; margin-top:20px; font-weight:bold;">REBOOT</button>
+        </div>
+      `;
+  }
 };
 
 interface ErrorBoundaryProps {
@@ -23,8 +26,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// ERROR BOUNDARY COMPONENT
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -32,7 +34,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("NEXA SYSTEM CRITICAL FAILURE:", error, errorInfo);
+    console.error("NEXA CRASH:", error, errorInfo);
   }
 
   render() {
@@ -41,7 +43,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         <div style={{
             backgroundColor: '#000', 
             color: '#0ff', 
-            height: '100vh', 
+            height: '100dvh', 
             width: '100vw', 
             display: 'flex', 
             flexDirection: 'column', 
@@ -51,69 +53,45 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             fontFamily: 'monospace',
             textAlign: 'center'
         }}>
-          <h1 style={{fontSize: '2rem', marginBottom: '10px', color: 'red', borderBottom: '1px solid red'}}>SYSTEM FAILURE</h1>
-          <p style={{color: '#fff', marginBottom: '20px'}}>CRITICAL ERROR DETECTED</p>
-          <pre style={{
-            marginTop: '20px', 
-            color: '#0f0', 
-            whiteSpace: 'pre-wrap', 
-            maxWidth: '90%', 
-            textAlign: 'left', 
-            background: '#111', 
-            padding: '10px',
-            border: '1px solid #333'
-          }}>
-            {this.state.error ? this.state.error.toString() : "Unknown Error"}
-          </pre>
+          <h1 style={{color: 'red', marginBottom: '10px'}}>RUNTIME ERROR</h1>
+          <p style={{fontSize: '12px', color: '#ccc'}}>{this.state.error?.message}</p>
           <button 
             onClick={() => window.location.reload()}
-            style={{marginTop: '30px', padding: '15px 30px', background: '#0ff', color: '#000', border: 'none', fontWeight: 'bold', cursor: 'pointer'}}
+            style={{marginTop: '30px', padding: '10px 20px', background: '#0ff', color: '#000', border: 'none', fontWeight: 'bold'}}
           >
-            REBOOT SYSTEM
+            REBOOT
           </button>
         </div>
       );
     }
-
     return this.props.children;
   }
 }
 
-// PWA Service Worker Registration
+// PWA Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(
-      (registration) => {
-        console.log('NEXA System: ServiceWorker registration successful');
-      },
-      (err) => {
-        console.log('NEXA System: ServiceWorker registration failed: ', err);
-      }
-    );
+    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW Fail', err));
   });
 }
 
-// Safe Mount Function
-const mountApp = () => {
-  const rootElement = document.getElementById('root');
-  if (!rootElement) {
-    console.error("Root element not found");
-    return;
+// Robust Mounting
+const mount = () => {
+  const container = document.getElementById('root');
+  if (container) {
+    const root = createRoot(container);
+    root.render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </React.StrictMode>
+    );
   }
-  
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </React.StrictMode>
-  );
 };
 
-// Ensure DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', mountApp);
+    document.addEventListener('DOMContentLoaded', mount);
 } else {
-  mountApp();
+    mount();
 }

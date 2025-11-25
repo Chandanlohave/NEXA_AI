@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, FunctionDeclaration, Type } from "@google/genai";
 import { SYSTEM_INSTRUCTION_ADMIN, SYSTEM_INSTRUCTION_USER } from "../constants";
 import { UserProfile, UserRole, ActionPayload } from "../types";
@@ -60,38 +61,8 @@ let aiInstance: GoogleGenAI | null = null;
 
 const getAI = (): GoogleGenAI => {
   if (!aiInstance) {
-    let apiKey = '';
-    
-    // 1. Try Vite Env (Most likely for this stack)
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-         // @ts-ignore
-         apiKey = import.meta.env.VITE_API_KEY;
-    }
-    // 2. Try Process Env (Fallback)
-    else {
-        try {
-            // @ts-ignore
-            if (typeof process !== 'undefined' && process.env) {
-                // @ts-ignore
-                apiKey = process.env.API_KEY || '';
-            }
-        } catch (e) {
-            // Process not defined, ignore
-        }
-    }
-    
-    // 3. Last Resort: Check global variable if injected by HTML
-    if (!apiKey) {
-        // @ts-ignore
-        if (window.ENV_API_KEY) apiKey = window.ENV_API_KEY;
-    }
-
-    if (!apiKey) {
-      console.error("CRITICAL: API_KEY NOT FOUND. Please check environment variables.");
-    }
-
-    aiInstance = new GoogleGenAI({ apiKey: apiKey });
+    // Guidelines: The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+    aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
   return aiInstance;
 };
