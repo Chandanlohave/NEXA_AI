@@ -1,4 +1,4 @@
-import React, { Component, ReactNode, ErrorInfo } from 'react';
+import React, { ReactNode, ErrorInfo } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 
@@ -19,13 +19,9 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
-  declare props: Readonly<ErrorBoundaryProps>;
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-  }
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Initialize state as a class property to fix TS errors with constructor assignment
+  state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -83,16 +79,7 @@ const mount = () => {
   try {
     const container = document.getElementById('root');
     if (container) {
-      // 1. Remove Bootloader Immediately
-      const bootloader = document.getElementById('bootloader');
-      if (bootloader) {
-          bootloader.style.opacity = '0';
-          setTimeout(() => {
-              if (bootloader) bootloader.style.display = 'none';
-          }, 500);
-      }
-
-      // 2. Mount React
+      // 1. Mount React
       const root = createRoot(container);
       root.render(
         <React.StrictMode>
@@ -101,6 +88,18 @@ const mount = () => {
           </ErrorBoundary>
         </React.StrictMode>
       );
+      
+      // 2. Remove Bootloader (After React starts rendering)
+      setTimeout(() => {
+          const bootloader = document.getElementById('bootloader');
+          if (bootloader) {
+              bootloader.style.opacity = '0';
+              setTimeout(() => {
+                  bootloader.style.display = 'none';
+              }, 500);
+          }
+      }, 100);
+
     } else {
         throw new Error("Root container not found");
     }
