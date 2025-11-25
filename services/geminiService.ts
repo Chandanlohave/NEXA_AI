@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Modality, FunctionDeclaration, Type } from "@google/genai";
 import { SYSTEM_INSTRUCTION_ADMIN, SYSTEM_INSTRUCTION_USER } from "../constants";
 import { UserProfile, UserRole, ActionPayload } from "../types";
@@ -168,6 +167,10 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
        .replace(/Nexa/gi, "Nexa")
        .replace(/Chandan/gi, "Chandan");
 
+    // Use explicit string 'AUDIO' to avoid enum issues if imports are flaky
+    // Casting to any to bypass strict type checking if Modality enum is missing in some environments
+    const modalityAudio = 'AUDIO' as unknown as Modality;
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [
@@ -176,7 +179,7 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
         },
       ],
       config: {
-        responseModalities: [Modality.AUDIO],
+        responseModalities: [modalityAudio], 
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: {

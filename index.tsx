@@ -1,4 +1,4 @@
-import React, { ReactNode, ErrorInfo } from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 
@@ -19,15 +19,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Extend Component directly to ensure access to this.props
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState;
-  public props: ErrorBoundaryProps;
-
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
-    this.props = props;
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {

@@ -11,8 +11,8 @@ export class VoiceService {
     try {
         const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
         if (AudioContextClass) {
-          // Gemini TTS usually outputs 24kHz raw PCM
-          this.audioContext = new AudioContextClass({ sampleRate: 24000 });
+          // Initialize without options to use the device's native sample rate (e.g., 48000Hz)
+          this.audioContext = new AudioContextClass();
         }
     } catch (e) {
         console.warn("AudioContext init failed (User interaction usually required first):", e);
@@ -38,7 +38,7 @@ export class VoiceService {
         // Try to re-init if it failed in constructor (e.g. needs user gesture)
         const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
         if (AudioContextClass) {
-            this.audioContext = new AudioContextClass({ sampleRate: 24000 });
+            this.audioContext = new AudioContextClass();
         } else {
             onEnded();
             return;
@@ -108,6 +108,9 @@ export class VoiceService {
 
   // Manual PCM Decoding for raw audio
   private pcmToAudioBuffer(data: Uint8Array, ctx: AudioContext): AudioBuffer {
+    // Gemini always sends 24000Hz mono.
+    // Creating a buffer with 24000Hz on a 48000Hz context is perfectly valid.
+    // The browser handles the playback rate conversion automatically.
     const sampleRate = 24000; 
     const numChannels = 1;    
     
