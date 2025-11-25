@@ -154,7 +154,8 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
   try {
     const ai = getAI();
     
-    // PHONETIC REPLACEMENT LAYER
+    // PHONETIC REPLACEMENT LAYER for Audio only
+    // Replaces 'Lohave' with Hindi phonetic 'लोहवे' (Lohave)
     const speechText = text.replace(/Lohave/gi, "लोहवे");
 
     const response = await ai.models.generateContent({

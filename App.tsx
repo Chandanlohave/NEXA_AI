@@ -91,6 +91,7 @@ export default function App() {
   const [applyStatus, setApplyStatus] = useState<'IDLE' | 'APPLIED'>('IDLE');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
   
   const introPlayedRef = useRef(false);
 
@@ -98,23 +99,30 @@ export default function App() {
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
+      console.log("Install Prompt Fired");
       setInstallPrompt(e);
-      // Automatically show the popup if not already installed
       setShowInstallPopup(true);
     };
+
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+      setShowInstallPopup(false);
+    }
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
   const handleInstallClick = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-      setShowInstallPopup(false);
+    if (installPrompt) {
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstallPrompt(null);
+        setShowInstallPopup(false);
+      }
     } else {
-        setShowInstallPopup(false); // Hide if dismissed
+      alert("Please tap the browser menu (⋮) and select 'Install App' or 'Add to Home Screen'.");
     }
   };
 
@@ -125,28 +133,32 @@ export default function App() {
     }
   }, []);
 
-  // Fetch users when Admin settings open
   useEffect(() => {
     if (showSettings && user?.role === UserRole.ADMIN) {
         setAllUsers(storageService.getAllUsers());
     }
   }, [showSettings, user]);
 
-  // --- NEW INTRO LOGIC ---
+  // --- RESTORED DYNAMIC INTRO LOGIC ---
   useEffect(() => {
     if (user && !introPlayedRef.current) {
         introPlayedRef.current = true;
         const performIntro = async () => {
-            // Wait briefly for UI to mount
-            await new Promise(resolve => setTimeout(resolve, 800));
+            // Wait for UI to settle
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            let introText = "";
-            if (user.role === UserRole.ADMIN) {
-                // Short, Cool Intro for Admin
-                introText = `Welcome back, Sir. NEXA online.`;
-            } else {
-                introText = `NEXA is ready. Hello there!`;
-            }
+            // Calculate Time Greeting
+            const hour = new Date().getHours();
+            let timeGreeting = "Morning";
+            if (hour >= 12 && hour < 17) timeGreeting = "Afternoon";
+            else if (hour >= 17) timeGreeting = "Evening";
+
+            // Determine Name
+            const targetName = user.role === UserRole.ADMIN ? "Chandan sir" : `${user.name}`;
+
+            // Exact Text
+            const introText = `मैं Nexa हूँ — आपकी Personal AI Assistant, जिसे Chandan Lohave ने design किया है. Good ${timeGreeting}! लगता है आज आपका mood मेरे जैसा perfect है. बताइए ${targetName}, मैं आपकी किस प्रकार सहायता कर सकती हूँ?`;
+
             await speakResponse(introText);
         };
         performIntro();
@@ -154,27 +166,23 @@ export default function App() {
   }, [user]);
 
   const speakResponse = async (text: string) => {
-    // Generate Audio
     const audioData = await generateSpeech(text);
     
     if (audioData) {
       voiceService.playAudio(
         audioData, 
         () => {
-          // ON START
           setNexaState(NexaState.SPEAKING);
           setCurrentText(text);
           setIsUserText(false);
           setShowChat(true);
         },
         () => {
-          // ON END
           setNexaState(NexaState.IDLE);
           setShowChat(false); 
         }
       );
     } else {
-      // Fallback
       setNexaState(NexaState.SPEAKING);
       setCurrentText(text);
       setIsUserText(false);
@@ -182,7 +190,7 @@ export default function App() {
       setTimeout(() => {
           setNexaState(NexaState.IDLE);
           setShowChat(false);
-      }, 3000);
+      }, 4000);
     }
   };
 
@@ -201,36 +209,29 @@ export default function App() {
 
     if (nexaState !== NexaState.IDLE) return;
 
-    // Start Listening
     setCurrentText("");
     setIsUserText(true);
-    setShowChat(false); // Hide chat while listening for cleaner UI
+    setShowChat(false);
     setNexaState(NexaState.LISTENING);
 
     voiceService.startListening(
       async (text, isFinal) => {
         if (isFinal && user) {
-            setNexaState(NexaState.THINKING); // Show Thinking Yellow
+            setNexaState(NexaState.THINKING);
             setCurrentText(text);
             setIsUserText(true);
             setShowChat(true);
             
-            // Generate Response
             const response = await generateTextResponse(text, user);
             
-            // Execute Intent
             if (response.actionPayload.action !== 'NONE') {
                 intentService.execute(response.actionPayload);
             }
             
-            // Speak Response
             await speakResponse(response.text);
             
-            // Save to Memory
             storageService.saveChat(user, { text: text, sender: 'user', timestamp: Date.now() });
             storageService.saveChat(user, { text: response.text, sender: 'nexa', timestamp: Date.now() });
-        } else {
-           // Live transcript (optional update)
         }
       },
       () => {
@@ -269,11 +270,9 @@ export default function App() {
     return <LoginPanel onLogin={handleLogin} />;
   }
 
-  // --- MAIN HUD SCREEN ---
   return (
     <div className="relative h-[100dvh] w-full flex flex-col items-center justify-between p-4 bg-transparent safe-area-inset overflow-hidden">
        
-       {/* SETTINGS BUTTON */}
        <button 
          onClick={() => setShowSettings(true)}
          className="absolute top-4 right-4 z-40 text-cyan-500 hover:text-cyan-300 opacity-60 hover:opacity-100 transition-opacity"
@@ -281,8 +280,7 @@ export default function App() {
          <SettingsIcon />
        </button>
 
-       {/* INSTALLATION POPUP MODAL */}
-       {showInstallPopup && installPrompt && (
+       {showInstallPopup && !isInstalled && (
           <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn p-6">
              <div className="w-full max-w-sm bg-nexa-panel border-2 border-cyan-500 p-6 shadow-[0_0_40px_rgba(41,223,255,0.3)] text-center relative">
                  <div className="text-cyan-400 font-futuristic text-xl mb-2 tracking-widest">SYSTEM INSTALLATION</div>
@@ -295,20 +293,19 @@ export default function App() {
                        onClick={() => setShowInstallPopup(false)}
                        className="text-gray-400 border border-gray-600 px-4 py-3 text-xs font-bold tracking-widest hover:text-white hover:border-white transition-colors"
                     >
-                       ABORT
+                       LATER
                     </button>
                     <button 
                        onClick={handleInstallClick}
                        className="bg-cyan-500/20 border border-cyan-400 text-cyan-300 px-6 py-3 text-xs font-bold tracking-widest hover:bg-cyan-400 hover:text-black transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(41,223,255,0.2)]"
                     >
-                       <DownloadIcon /> INSTALL SYSTEM
+                       <DownloadIcon /> {installPrompt ? 'INSTALL NOW' : 'HOW TO INSTALL'}
                     </button>
                  </div>
              </div>
           </div>
        )}
 
-       {/* SETTINGS MODAL */}
        {showSettings && (
          <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
             <div className="w-full max-w-md bg-nexa-panel border border-cyan-500/30 p-6 shadow-[0_0_50px_rgba(41,223,255,0.1)] relative">
@@ -328,12 +325,10 @@ export default function App() {
                       <div className="text-white font-mono">{user.mobile}</div>
                    </div>
 
-                   {/* ADMIN CONTROLS */}
                    {user.role === UserRole.ADMIN && (
                      <div className="mt-8 border-t border-cyan-900/50 pt-4 space-y-4">
                         <div className="text-red-400 text-xs font-bold tracking-[0.2em] mb-2">SYSTEM OVERRIDE</div>
                         
-                        {/* SPEED CONTROL */}
                         <div className="space-y-2">
                            <div className="flex justify-between text-[10px] text-cyan-600 uppercase">
                               <span>HUD Rotation Speed</span>
@@ -354,7 +349,6 @@ export default function App() {
                            {applyStatus === 'APPLIED' ? 'CONFIGURATION UPDATED' : 'APPLY CONFIG'}
                         </button>
 
-                        {/* USER DB */}
                         <div className="mt-6">
                             <div className="text-[10px] text-gray-500 tracking-widest mb-2">REGISTERED IDENTITIES</div>
                             <div className="space-y-2">
@@ -375,24 +369,33 @@ export default function App() {
                    )}
                 </div>
 
-                <button 
-                  onClick={handleLogout}
-                  className="w-full mt-8 bg-red-900/10 border border-red-900/50 text-red-800 hover:text-red-500 hover:bg-red-900/20 py-3 text-xs font-bold tracking-[0.3em] transition-all"
-                >
-                  TERMINATE SESSION
-                </button>
+                <div className="space-y-2 mt-8">
+                     {!isInstalled && (
+                        <button 
+                           onClick={handleInstallClick}
+                           className="w-full bg-cyan-900/10 border border-cyan-900/50 text-cyan-600 hover:text-cyan-400 hover:bg-cyan-900/20 py-3 text-xs font-bold tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+                        >
+                           <DownloadIcon /> {installPrompt ? 'INSTALL APP' : 'APP INSTALLATION'}
+                        </button>
+                     )}
+
+                    <button 
+                    onClick={handleLogout}
+                    className="w-full bg-red-900/10 border border-red-900/50 text-red-800 hover:text-red-500 hover:bg-red-900/20 py-3 text-xs font-bold tracking-[0.3em] transition-all"
+                    >
+                    TERMINATE SESSION
+                    </button>
+                </div>
             </div>
          </div>
        )}
 
-       {/* TOP SECTION: HUD (Scaled down for mobile) */}
        <div className="flex-1 w-full flex items-center justify-center relative mt-12 md:mt-0">
           <div className="scale-50 md:scale-100 transform transition-transform duration-500">
              <HUD state={nexaState} speed={hudSpeed} />
           </div>
        </div>
 
-       {/* MIDDLE SECTION: CHAT BUBBLE */}
        <div className="w-full flex justify-center absolute top-[42%] md:top-[45%] left-0 px-6 z-30 pointer-events-none">
           <ChatInterface 
             text={currentText} 
@@ -403,7 +406,6 @@ export default function App() {
           />
        </div>
 
-       {/* BOTTOM SECTION: MIC (Arc Reactor) */}
        <div className="h-1/4 w-full flex items-center justify-center pb-8">
           <HoloMicButton 
             active={nexaState === NexaState.LISTENING || nexaState === NexaState.SPEAKING} 
