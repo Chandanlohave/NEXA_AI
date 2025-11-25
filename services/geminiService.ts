@@ -62,7 +62,17 @@ let aiInstance: GoogleGenAI | null = null;
 const getAI = (): GoogleGenAI => {
   if (!aiInstance) {
     // Guidelines: The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-    aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Safety check: process might be undefined in some browser runtimes, fallback gracefully if so (though it will fail auth).
+    let apiKey = '';
+    try {
+        if (typeof process !== 'undefined' && process.env) {
+            apiKey = process.env.API_KEY || '';
+        }
+    } catch (e) {
+        console.warn("Could not access process.env");
+    }
+    
+    aiInstance = new GoogleGenAI({ apiKey: apiKey });
   }
   return aiInstance;
 };
