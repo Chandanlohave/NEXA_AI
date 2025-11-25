@@ -90,6 +90,7 @@ export default function App() {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [applyStatus, setApplyStatus] = useState<'IDLE' | 'APPLIED'>('IDLE');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstallPopup, setShowInstallPopup] = useState(false);
   
   const introPlayedRef = useRef(false);
 
@@ -98,6 +99,8 @@ export default function App() {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setInstallPrompt(e);
+      // Automatically show the popup if not already installed
+      setShowInstallPopup(true);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -109,6 +112,9 @@ export default function App() {
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted') {
       setInstallPrompt(null);
+      setShowInstallPopup(false);
+    } else {
+        setShowInstallPopup(false); // Hide if dismissed
     }
   };
 
@@ -275,6 +281,33 @@ export default function App() {
          <SettingsIcon />
        </button>
 
+       {/* INSTALLATION POPUP MODAL */}
+       {showInstallPopup && installPrompt && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn p-6">
+             <div className="w-full max-w-sm bg-nexa-panel border-2 border-cyan-500 p-6 shadow-[0_0_40px_rgba(41,223,255,0.3)] text-center relative">
+                 <div className="text-cyan-400 font-futuristic text-xl mb-2 tracking-widest">SYSTEM INSTALLATION</div>
+                 <div className="h-[1px] w-20 bg-cyan-500 mx-auto mb-4"></div>
+                 <p className="text-gray-300 text-sm mb-6 leading-relaxed">
+                    Initialize NEXA NATIVE PROTOCOL for optimized performance and full-screen interface.
+                 </p>
+                 <div className="flex gap-4 justify-center">
+                    <button 
+                       onClick={() => setShowInstallPopup(false)}
+                       className="text-gray-400 border border-gray-600 px-4 py-3 text-xs font-bold tracking-widest hover:text-white hover:border-white transition-colors"
+                    >
+                       ABORT
+                    </button>
+                    <button 
+                       onClick={handleInstallClick}
+                       className="bg-cyan-500/20 border border-cyan-400 text-cyan-300 px-6 py-3 text-xs font-bold tracking-widest hover:bg-cyan-400 hover:text-black transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(41,223,255,0.2)]"
+                    >
+                       <DownloadIcon /> INSTALL SYSTEM
+                    </button>
+                 </div>
+             </div>
+          </div>
+       )}
+
        {/* SETTINGS MODAL */}
        {showSettings && (
          <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
@@ -286,22 +319,6 @@ export default function App() {
                 </h2>
 
                 <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-                   {/* INSTALL APP BUTTON (PWA) */}
-                   {installPrompt && (
-                       <div className="bg-cyan-900/20 border border-cyan-500/40 p-4 flex items-center justify-between animate-pulse">
-                          <div>
-                             <div className="text-cyan-300 text-xs font-bold tracking-widest mb-1">SYSTEM UPDATE</div>
-                             <div className="text-[10px] text-cyan-500/80">Install NEXA Native App</div>
-                          </div>
-                          <button 
-                             onClick={handleInstallClick}
-                             className="bg-cyan-500/20 border border-cyan-500 text-cyan-300 px-3 py-2 text-xs font-bold flex items-center gap-2 hover:bg-cyan-500/40"
-                          >
-                             <DownloadIcon /> INSTALL
-                          </button>
-                       </div>
-                   )}
-
                    <div className="flex items-center justify-between">
                       <div className="text-gray-400 text-xs tracking-widest">IDENTITY</div>
                       <div className="text-white font-mono">{user.name}</div>
