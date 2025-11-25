@@ -8,8 +8,6 @@ window.onerror = function(message, source, lineno, colno, error) {
   if (bootloader) bootloader.style.display = 'none';
 
   console.error("Global Crash:", error);
-  // We don't overwrite body here to allow ErrorBoundary to try first, 
-  // but we ensure bootloader is gone.
 };
 
 interface ErrorBoundaryProps {
@@ -21,8 +19,12 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
+// Fix: Extend Component directly to ensure access to this.props
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -66,10 +68,12 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-// PWA Service Worker
+// PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW Fail', err));
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW Registered', reg.scope))
+      .catch(err => console.log('SW Fail', err));
   });
 }
 
@@ -78,7 +82,7 @@ const mount = () => {
   try {
     const container = document.getElementById('root');
     if (container) {
-      // 1. Remove Bootloader Immediately to prevent "Stuck Loading"
+      // 1. Remove Bootloader Immediately
       const bootloader = document.getElementById('bootloader');
       if (bootloader) {
           bootloader.style.opacity = '0';
@@ -98,7 +102,6 @@ const mount = () => {
         throw new Error("Root container not found");
     }
   } catch (e: any) {
-      // PRE-REACT CRASH HANDLER
       const bootloader = document.getElementById('bootloader');
       if (bootloader) bootloader.style.display = 'none';
       

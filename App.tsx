@@ -95,34 +95,62 @@ export default function App() {
   
   const introPlayedRef = useRef(false);
 
-  // PWA Install Prompt Listener
+  // PWA Install Logic
   useEffect(() => {
+    // 1. Check if already running in standalone mode (Installed)
+    const checkStandalone = () => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                           (window.navigator as any).standalone === true;
+      if (isStandalone) {
+        setIsInstalled(true);
+        setShowInstallPopup(false);
+      }
+    };
+    checkStandalone();
+
+    // 2. Listen for 'beforeinstallprompt' event
     const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
+      e.preventDefault(); // Prevent Chrome's mini-infobar
       console.log("Install Prompt Fired");
       setInstallPrompt(e);
-      setShowInstallPopup(true);
+      // Only show popup if not already installed
+      if (!isInstalled) {
+          setShowInstallPopup(true);
+      }
     };
 
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    // 3. Listen for successful installation event
+    const handleAppInstalled = () => {
+      console.log("App Installed Successfully");
       setIsInstalled(true);
       setShowInstallPopup(false);
-    }
+      setInstallPrompt(null);
+    };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, [isInstalled]);
 
   const handleInstallClick = async () => {
     if (installPrompt) {
       installPrompt.prompt();
       const { outcome } = await installPrompt.userChoice;
+      console.log(`User response to install prompt: ${outcome}`);
+      
+      // Whether accepted or dismissed, hide the intrusive popup
+      setShowInstallPopup(false);
+      
       if (outcome === 'accepted') {
         setInstallPrompt(null);
-        setShowInstallPopup(false);
       }
     } else {
-      alert("Please tap the browser menu (⋮) and select 'Install App' or 'Add to Home Screen'.");
+      // Manual Fallback Instructions
+      alert("Click the three dots (⋮) in Chrome -> 'Install App' or 'Add to Home Screen'");
     }
   };
 
@@ -139,13 +167,13 @@ export default function App() {
     }
   }, [showSettings, user]);
 
-  // --- RESTORED DYNAMIC INTRO LOGIC ---
+  // --- DYNAMIC INTRO LOGIC ---
   useEffect(() => {
     if (user && !introPlayedRef.current) {
         introPlayedRef.current = true;
         const performIntro = async () => {
             // Wait for UI to settle
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 1500));
             
             // Calculate Time Greeting
             const hour = new Date().getHours();
@@ -154,10 +182,10 @@ export default function App() {
             else if (hour >= 17) timeGreeting = "Evening";
 
             // Determine Name
-            const targetName = user.role === UserRole.ADMIN ? "Chandan sir" : `${user.name}`;
+            const targetName = user.role === UserRole.ADMIN ? "Chandan sir" : `${user.name} sir`;
 
-            // Exact Text
-            const introText = `मैं Nexa हूँ — आपकी Personal AI Assistant, जिसे Chandan Lohave ने design किया है. Good ${timeGreeting}! लगता है आज आपका mood मेरे जैसा perfect है. बताइए ${targetName}, मैं आपकी किस प्रकार सहायता कर सकती हूँ?`;
+            // Exact Hindi Text
+            const introText = `मैं Nexa हूँ — आपकी Personal AI Assistant, जिसे Chandan Lohave (लोहवे) ने design किया है. Good ${timeGreeting}! लगता है आज आपका mood मेरे जैसा perfect है. बताइए ${targetName}, मैं आपकी किस प्रकार सहायता कर सकती हूँ?`;
 
             await speakResponse(introText);
         };
@@ -183,6 +211,7 @@ export default function App() {
         }
       );
     } else {
+      // Fallback if no audio
       setNexaState(NexaState.SPEAKING);
       setCurrentText(text);
       setIsUserText(false);
@@ -222,16 +251,27 @@ export default function App() {
             setIsUserText(true);
             setShowChat(true);
             
+            // Generate Response
             const response = await generateTextResponse(text, user);
             
+            // Execute Intent
             if (response.actionPayload.action !== 'NONE') {
                 intentService.execute(response.actionPayload);
             }
             
+            // Speak
             await speakResponse(response.text);
             
-            storageService.saveChat(user, { text: text, sender: 'user', timestamp: Date.now() });
-            storageService.saveChat(user, { text: response.text, sender: 'nexa', timestamp: Date.now() });
+            // Save Memory
+            const timestamp = Date.now();
+            storageService.saveChat(user, { text: text, sender: 'user', timestamp });
+            storageService.saveChat(user, { text: response.text, sender: 'nexa', timestamp: timestamp + 100 });
+            
+            // RELOAD USER FROM STORAGE TO ENSURE MEMORY IS SYNCED
+            const updatedUser = storageService.getCurrentUser();
+            if (updatedUser) {
+              setUser(updatedUser);
+            }
         }
       },
       () => {
@@ -280,6 +320,7 @@ export default function App() {
          <SettingsIcon />
        </button>
 
+       {/* INSTALL POPUP - VISIBLE IF PROMPT AVAILABLE & NOT INSTALLED */}
        {showInstallPopup && !isInstalled && (
           <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn p-6">
              <div className="w-full max-w-sm bg-nexa-panel border-2 border-cyan-500 p-6 shadow-[0_0_40px_rgba(41,223,255,0.3)] text-center relative">
@@ -299,7 +340,7 @@ export default function App() {
                        onClick={handleInstallClick}
                        className="bg-cyan-500/20 border border-cyan-400 text-cyan-300 px-6 py-3 text-xs font-bold tracking-widest hover:bg-cyan-400 hover:text-black transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(41,223,255,0.2)]"
                     >
-                       <DownloadIcon /> {installPrompt ? 'INSTALL NOW' : 'HOW TO INSTALL'}
+                       <DownloadIcon /> INSTALL SYSTEM
                     </button>
                  </div>
              </div>
@@ -370,6 +411,7 @@ export default function App() {
                 </div>
 
                 <div className="space-y-2 mt-8">
+                     {/* MANUAL INSTALL BUTTON IN SETTINGS */}
                      {!isInstalled && (
                         <button 
                            onClick={handleInstallClick}

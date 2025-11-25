@@ -62,7 +62,6 @@ let aiInstance: GoogleGenAI | null = null;
 const getAI = (): GoogleGenAI => {
   if (!aiInstance) {
     // Guidelines: The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-    // Safety check: process might be undefined in some browser runtimes, fallback gracefully if so (though it will fail auth).
     let apiKey = '';
     try {
         if (typeof process !== 'undefined' && process.env) {
@@ -102,16 +101,19 @@ export const generateTextResponse = async (prompt: string, user: UserProfile): P
         `[${msg.sender === 'user' ? 'USER' : 'NEXA'}]: ${msg.text}`
     ).join('\n');
 
+    // CONSTRUCT POWERFUL PROMPT
     const fullPrompt = `
-      [CURRENT TIME: ${timeString}]
-      [CURRENT DATE: ${dateString}]
-      [USER NAME: ${user.name}]
+      CONTEXT:
+      - Current Time: ${timeString}
+      - Current Date: ${dateString}
+      - User Name: ${user.name}
       
-      === CONVERSATION HISTORY (MEMORY) ===
-      ${memoryString}
-      =====================================
+      *** MEMORY (PREVIOUS CONVERSATION) ***
+      You MUST use this history to answer questions about what was said before.
+      ${memoryString || "No previous conversation history."}
+      **************************************
 
-      USER INPUT: "${prompt}"
+      USER'S LATEST INPUT: "${prompt}"
     `;
 
     // 2. Call Gemini with Tools
@@ -145,47 +147,51 @@ export const generateTextResponse = async (prompt: string, user: UserProfile): P
     }
 
     if (!spokenText && actionPayload.action !== 'NONE') {
-        spokenText = "Okay sir, processing...";
+        spokenText = "Processing command...";
     }
 
-    return { text: spokenText || "System failure.", actionPayload };
+    return { text: spokenText, actionPayload };
 
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    return { 
-        text: "Sorry, network fluctuate ho raha hai. Dobara boliye.", 
-        actionPayload: { action: 'NONE' } 
-    };
+    console.error("Gemini Error:", error);
+    return { text: "I'm having trouble connecting to the network.", actionPayload: { action: 'NONE' } };
   }
 };
 
 export const generateSpeech = async (text: string): Promise<string | null> => {
-  if (!text) return null;
-
   try {
     const ai = getAI();
     
-    // PHONETIC REPLACEMENT LAYER for Audio only
-    // Replaces 'Lohave' with Hindi phonetic 'लोहवे' (Lohave)
-    const speechText = text.replace(/Lohave/gi, "लोहवे");
+    // PHONETIC REPLACEMENT for clearer Hindi/English mix
+    const phoneticText = text
+       .replace(/Lohave/gi, "लोहवे")
+       .replace(/Nexa/gi, "Nexa") // Keep English
+       .replace(/Chandan/gi, "Chandan");
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: speechText }] }],
+      model: "gemini-2.5-flash-native-audio-preview-09-2025",
+      contents: [
+        {
+          parts: [{ text: phoneticText }],
+        },
+      ],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' }, 
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: "Kore", // Kore is soft/female-like
             },
+          },
         },
       },
     });
 
     const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     return audioData || null;
+
   } catch (error) {
-    console.error("Gemini TTS Error:", error);
+    console.error("TTS Error:", error);
     return null;
   }
 };
