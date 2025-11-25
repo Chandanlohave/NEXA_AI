@@ -89,41 +89,50 @@ export default function App() {
   const [tempHudSpeed, setTempHudSpeed] = useState(1);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [applyStatus, setApplyStatus] = useState<'IDLE' | 'APPLIED'>('IDLE');
+  
+  // PWA State
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [showInstallPopup, setShowInstallPopup] = useState(false);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   
   const introPlayedRef = useRef(false);
 
-  // PWA Install Logic
+  // --- PWA LOGIC ---
   useEffect(() => {
-    // 1. Check if already running in standalone mode (Installed)
+    // 1. Check if already installed (Standalone Mode)
     const checkStandalone = () => {
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                           (window.navigator as any).standalone === true;
+      const isStandalone = 
+        window.matchMedia('(display-mode: standalone)').matches || 
+        (window.navigator as any).standalone === true; // iOS fallback
+
       if (isStandalone) {
         setIsInstalled(true);
-        setShowInstallPopup(false);
+        setShowInstallBanner(false);
       }
     };
+    
+    // Check on mount and change
     checkStandalone();
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
 
-    // 2. Listen for 'beforeinstallprompt' event
+    // 2. Listen for 'beforeinstallprompt'
     const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault(); // Prevent Chrome's mini-infobar
-      console.log("Install Prompt Fired");
+      // Prevent Chrome 67+ from automatically showing the prompt
+      e.preventDefault();
+      console.log("Stashed Install Prompt");
       setInstallPrompt(e);
-      // Only show popup if not already installed
+      
+      // Show our custom UI if not installed
       if (!isInstalled) {
-          setShowInstallPopup(true);
+          setShowInstallBanner(true);
       }
     };
 
-    // 3. Listen for successful installation event
+    // 3. Listen for appinstalled
     const handleAppInstalled = () => {
-      console.log("App Installed Successfully");
+      console.log("App Installed");
       setIsInstalled(true);
-      setShowInstallPopup(false);
+      setShowInstallBanner(false);
       setInstallPrompt(null);
     };
 
@@ -136,21 +145,24 @@ export default function App() {
     };
   }, [isInstalled]);
 
+  // Handle Install Click
   const handleInstallClick = async () => {
     if (installPrompt) {
       installPrompt.prompt();
-      const { outcome } = await installPrompt.userChoice;
-      console.log(`User response to install prompt: ${outcome}`);
+      const choiceResult = await installPrompt.userChoice;
       
-      // Whether accepted or dismissed, hide the intrusive popup
-      setShowInstallPopup(false);
+      console.log(`User choice: ${choiceResult.outcome}`);
       
-      if (outcome === 'accepted') {
+      // Hide banner regardless of choice to avoid being intrusive
+      setShowInstallBanner(false);
+      
+      if (choiceResult.outcome === 'accepted') {
+        setIsInstalled(true); // Optimistic update
         setInstallPrompt(null);
       }
     } else {
-      // Manual Fallback Instructions
-      alert("Click the three dots (⋮) in Chrome -> 'Install App' or 'Add to Home Screen'");
+      // Fallback for iOS or manual install
+      alert("To install NEXA:\nTap Share Icon -> 'Add to Home Screen'");
     }
   };
 
@@ -320,29 +332,26 @@ export default function App() {
          <SettingsIcon />
        </button>
 
-       {/* INSTALL POPUP - VISIBLE IF PROMPT AVAILABLE & NOT INSTALLED */}
-       {showInstallPopup && !isInstalled && (
-          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn p-6">
-             <div className="w-full max-w-sm bg-nexa-panel border-2 border-cyan-500 p-6 shadow-[0_0_40px_rgba(41,223,255,0.3)] text-center relative">
-                 <div className="text-cyan-400 font-futuristic text-xl mb-2 tracking-widest">SYSTEM INSTALLATION</div>
-                 <div className="h-[1px] w-20 bg-cyan-500 mx-auto mb-4"></div>
-                 <p className="text-gray-300 text-sm mb-6 leading-relaxed">
-                    Initialize NEXA NATIVE PROTOCOL for optimized performance and full-screen interface.
-                 </p>
-                 <div className="flex gap-4 justify-center">
-                    <button 
-                       onClick={() => setShowInstallPopup(false)}
-                       className="text-gray-400 border border-gray-600 px-4 py-3 text-xs font-bold tracking-widest hover:text-white hover:border-white transition-colors"
-                    >
-                       LATER
-                    </button>
-                    <button 
-                       onClick={handleInstallClick}
-                       className="bg-cyan-500/20 border border-cyan-400 text-cyan-300 px-6 py-3 text-xs font-bold tracking-widest hover:bg-cyan-400 hover:text-black transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(41,223,255,0.2)]"
-                    >
-                       <DownloadIcon /> INSTALL SYSTEM
-                    </button>
-                 </div>
+       {/* --- INSTALL BANNER (NON-INTRUSIVE) --- */}
+       {showInstallBanner && !isInstalled && (
+          <div className="absolute top-16 left-4 right-4 z-30 bg-nexa-panel/90 backdrop-blur-md border border-cyan-500/30 p-3 rounded-lg flex items-center justify-between shadow-[0_0_20px_rgba(41,223,255,0.15)] animate-fadeIn">
+             <div className="flex flex-col">
+                <span className="text-cyan-400 font-futuristic text-xs tracking-wider">SYSTEM UPGRADE AVAILABLE</span>
+                <span className="text-gray-400 text-[10px] font-mono">Install NEXA Native Protocol</span>
+             </div>
+             <div className="flex gap-2">
+                <button 
+                   onClick={() => setShowInstallBanner(false)}
+                   className="px-3 py-2 text-[10px] text-gray-500 font-bold hover:text-white transition-colors"
+                >
+                   LATER
+                </button>
+                <button 
+                   onClick={handleInstallClick}
+                   className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-[10px] font-bold tracking-widest hover:bg-cyan-500/40 hover:text-white transition-all shadow-cyan-500/20 shadow-sm"
+                >
+                   INSTALL
+                </button>
              </div>
           </div>
        )}
@@ -411,13 +420,13 @@ export default function App() {
                 </div>
 
                 <div className="space-y-2 mt-8">
-                     {/* MANUAL INSTALL BUTTON IN SETTINGS */}
-                     {!isInstalled && (
+                     {/* MANUAL INSTALL BUTTON - Only if prompt available but banner dismissed */}
+                     {!isInstalled && installPrompt && (
                         <button 
                            onClick={handleInstallClick}
                            className="w-full bg-cyan-900/10 border border-cyan-900/50 text-cyan-600 hover:text-cyan-400 hover:bg-cyan-900/20 py-3 text-xs font-bold tracking-[0.2em] transition-all flex items-center justify-center gap-2"
                         >
-                           <DownloadIcon /> {installPrompt ? 'INSTALL APP' : 'APP INSTALLATION'}
+                           <DownloadIcon /> INSTALL NEXA SYSTEM
                         </button>
                      )}
 
