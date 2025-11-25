@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, FunctionDeclaration, Type } from "@google/genai";
 import { SYSTEM_INSTRUCTION_ADMIN, SYSTEM_INSTRUCTION_USER } from "../constants";
 import { UserProfile, UserRole, ActionPayload } from "../types";
@@ -60,14 +61,17 @@ let aiInstance: GoogleGenAI | null = null;
 
 const getAI = (): GoogleGenAI => {
   if (!aiInstance) {
-    // Guidelines: The API key must be obtained exclusively from the environment variable process.env.API_KEY.
     let apiKey = '';
+    // SAFE ENV ACCESS
     try {
         if (typeof process !== 'undefined' && process.env) {
             apiKey = process.env.API_KEY || '';
         }
-    } catch (e) {
-        console.warn("Could not access process.env");
+    } catch (e) {}
+
+    // Debug for Vercel: Log if key is missing (DO NOT log the actual key)
+    if (!apiKey) {
+        console.error("NEXA SYSTEM ERROR: API_KEY is missing in environment variables.");
     }
     
     aiInstance = new GoogleGenAI({ apiKey: apiKey });
@@ -94,28 +98,25 @@ export const generateTextResponse = async (prompt: string, user: UserProfile): P
     const dateString = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
     // --- MEMORY INTEGRATION ---
-    // Retrieve last 15 messages to provide context
     const recentHistory = user.chatHistory.slice(-15);
     const memoryString = recentHistory.map(msg => 
         `[${msg.sender === 'user' ? 'USER' : 'NEXA'}]: ${msg.text}`
     ).join('\n');
 
-    // CONSTRUCT POWERFUL PROMPT
+    // CONSTRUCT PROMPT
     const fullPrompt = `
       CONTEXT:
-      - Current Time: ${timeString}
-      - Current Date: ${dateString}
-      - User Name: ${user.name}
+      - Time: ${timeString}, Date: ${dateString}
+      - User: ${user.name}
       
-      *** MEMORY (PREVIOUS CONVERSATION) ***
-      You MUST use this history to answer questions about what was said before.
-      ${memoryString || "No previous conversation history."}
-      **************************************
+      *** MEMORY ***
+      ${memoryString || "No previous history."}
+      *************
 
-      USER'S LATEST INPUT: "${prompt}"
+      INPUT: "${prompt}"
     `;
 
-    // 2. Call Gemini with Tools
+    // 2. Call Gemini
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: fullPrompt,
@@ -126,34 +127,30 @@ export const generateTextResponse = async (prompt: string, user: UserProfile): P
       },
     });
 
-    // 3. Parse Response
+    // 3. Parse
     let spokenText = response.text || "";
     let actionPayload: ActionPayload = { action: 'NONE' };
 
     if (response.functionCalls && response.functionCalls.length > 0) {
         for (const fc of response.functionCalls) {
-            if (fc.name === 'openApp') {
-                actionPayload = { action: 'OPEN_APP', data: fc.args };
-            } else if (fc.name === 'makeCall') {
-                actionPayload = { action: 'CALL', data: fc.args };
-            } else if (fc.name === 'sendWhatsApp') {
-                actionPayload = { action: 'WHATSAPP', data: fc.args };
-            } else if (fc.name === 'setAlarm') {
-                actionPayload = { action: 'ALARM', data: fc.args };
-            }
+            if (fc.name === 'openApp') actionPayload = { action: 'OPEN_APP', data: fc.args };
+            else if (fc.name === 'makeCall') actionPayload = { action: 'CALL', data: fc.args };
+            else if (fc.name === 'sendWhatsApp') actionPayload = { action: 'WHATSAPP', data: fc.args };
+            else if (fc.name === 'setAlarm') actionPayload = { action: 'ALARM', data: fc.args };
+            
             if (actionPayload.action !== 'NONE') break;
         }
     }
 
     if (!spokenText && actionPayload.action !== 'NONE') {
-        spokenText = "Processing command...";
+        spokenText = "Executing command...";
     }
 
     return { text: spokenText, actionPayload };
 
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return { text: "I'm having trouble connecting to the network.", actionPayload: { action: 'NONE' } };
+    console.error("Gemini Text Error:", error);
+    return { text: "Network unreachable. Please check connection.", actionPayload: { action: 'NONE' } };
   }
 };
 
@@ -161,14 +158,12 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
   try {
     const ai = getAI();
     
-    // PHONETIC REPLACEMENT for clearer Hindi/English mix
+    // PHONETIC FIXES
     const phoneticText = text
-       .replace(/Lohave/gi, "लोहवे") // Force correct pronunciation
+       .replace(/Lohave/gi, "लोहवे")
        .replace(/Nexa/gi, "Nexa")
        .replace(/Chandan/gi, "Chandan");
 
-    // Use explicit string 'AUDIO' to avoid enum issues if imports are flaky
-    // Casting to any to bypass strict type checking if Modality enum is missing in some environments
     const modalityAudio = 'AUDIO' as unknown as Modality;
 
     const response = await ai.models.generateContent({
@@ -183,7 +178,7 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: {
-              voiceName: "Kore", // Kore is soft/female-like
+              voiceName: "Kore", // Soft Female
             },
           },
         },
@@ -194,7 +189,7 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
     return audioData || null;
 
   } catch (error) {
-    console.error("TTS Error:", error);
+    console.error("Gemini TTS Error:", error);
     return null;
   }
 };

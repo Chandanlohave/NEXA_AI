@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { storageService } from '../services/storageService';
+import { voiceService } from '../services/voiceService'; // Import Voice Service
 import { UserProfile } from '../types';
 
 interface LoginPanelProps {
@@ -25,7 +26,13 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLogin }) => {
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [error, setError] = useState('');
 
+  // HELPER: Unlock Audio on any interaction
+  const unlockAudio = () => {
+    voiceService.init();
+  };
+
   const handleAdminLogin = () => {
+    unlockAudio(); // Unlock audio driver
     if (adminId.trim() === 'Chandan' && adminPass.trim() === 'Nexa') {
       const user = storageService.adminLogin();
       onLogin(user);
@@ -35,6 +42,7 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLogin }) => {
   };
 
   const handleUserLogin = () => {
+    unlockAudio(); // Unlock audio driver
     if (userMobile.length !== 10) {
       setError("INVALID MOBILE NUMBER");
       return;
@@ -56,6 +64,7 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLogin }) => {
   };
 
   const handleOtpVerify = () => {
+    unlockAudio(); // Unlock audio driver
     if (otp === generatedOtp) {
       const user = storageService.signup(signupName, signupMobile);
       onLogin(user);

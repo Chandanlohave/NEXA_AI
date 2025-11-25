@@ -1,3 +1,4 @@
+
 export class VoiceService {
   private recognition: any;
   private audioContext: AudioContext | null = null;
@@ -5,23 +6,41 @@ export class VoiceService {
   private gainNode: GainNode | null = null;
 
   constructor() {
-    // Safety check for SSR or environments where window is undefined
-    if (typeof window === 'undefined') return;
+    // DO NOT initialize AudioContext here. 
+    // It causes "Autoplay Policy" blocks on Android/iOS.
+    // We wait for init() triggered by a button click.
+  }
 
-    try {
-        const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-        if (AudioContextClass) {
-          // Initialize without options to use the device's native sample rate (e.g., 48000Hz)
-          this.audioContext = new AudioContextClass();
+  // CALL THIS ON USER INTERACTION (Click)
+  init() {
+    if (typeof window === 'undefined') return;
+    
+    if (!this.audioContext) {
+        try {
+            const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+            if (AudioContextClass) {
+                this.audioContext = new AudioContextClass();
+                console.log("Audio Engine Started:", this.audioContext.state);
+            }
+        } catch (e) {
+            console.warn("Audio Init Error:", e);
         }
-    } catch (e) {
-        console.warn("AudioContext init failed (User interaction usually required first):", e);
     }
 
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+        this.audioContext.resume().then(() => {
+            console.log("Audio Engine Resumed");
+        });
+    }
+
+    this.initRecognition();
+  }
+
+  private initRecognition() {
     try {
         // @ts-ignore
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
+        if (SpeechRecognition && !this.recognition) {
           this.recognition = new SpeechRecognition();
           this.recognition.continuous = false;
           this.recognition.lang = 'en-IN'; // Hinglish preference
@@ -29,30 +48,34 @@ export class VoiceService {
           this.recognition.maxAlternatives = 1;
         }
     } catch (e) {
-        console.warn("SpeechRecognition init failed:", e);
+        console.warn("Speech Init Error:", e);
     }
   }
 
   async playAudio(base64Data: string, onStart: () => void, onEnded: () => void) {
+    // 1. Ensure Context Exists
     if (!this.audioContext) {
-        // Try to re-init if it failed in constructor (e.g. needs user gesture)
-        const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-        if (AudioContextClass) {
-            this.audioContext = new AudioContextClass();
-        } else {
+        this.init(); // Try to lazy init
+        if (!this.audioContext) {
+            console.error("Audio Context Missing - User interaction needed");
             onEnded();
             return;
         }
     }
     
+    // 2. Force Wake Up (Critical for Android)
     if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
+      try {
+        await this.audioContext.resume();
+      } catch (e) {
+        console.error("Could not resume audio context:", e);
+      }
     }
 
     this.stopAudio();
 
     try {
-      // Decode Base64 to binary
+      // Decode Base64
       const binaryString = atob(base64Data);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
@@ -63,11 +86,10 @@ export class VoiceService {
       let audioBuffer: AudioBuffer;
 
       try {
-        // Attempt 1: Standard Browser Decoding
         const bufferCopy = bytes.buffer.slice(0);
         audioBuffer = await this.audioContext.decodeAudioData(bufferCopy);
       } catch (decodeError) {
-        // Attempt 2: Manual PCM Decoding (Fallback for Raw Gemini Audio)
+        console.warn("Standard decode failed, trying PCM fallback...");
         audioBuffer = this.pcmToAudioBuffer(bytes, this.audioContext);
       }
 
@@ -79,25 +101,14 @@ export class VoiceService {
       this.gainNode.connect(this.audioContext.destination);
       
       const now = this.audioContext.currentTime;
-      const duration = audioBuffer.duration;
-      
-      // 150ms Fade In
+      // Slight Fade In/Out to prevent popping
       this.gainNode.gain.setValueAtTime(0, now);
-      this.gainNode.gain.linearRampToValueAtTime(1, now + 0.15);
-      
-      // 150ms Fade Out
-      if (duration > 0.3) {
-        this.gainNode.gain.setValueAtTime(1, now + duration - 0.15);
-        this.gainNode.gain.linearRampToValueAtTime(0, now + duration);
-      }
+      this.gainNode.gain.linearRampToValueAtTime(1, now + 0.1);
 
       source.onended = onEnded;
       this.currentSource = source;
       
-      // Schedule start immediately
       source.start(0);
-      
-      // Trigger UI start immediately after scheduling
       onStart();
       
     } catch (error) {
@@ -106,19 +117,12 @@ export class VoiceService {
     }
   }
 
-  // Manual PCM Decoding for raw audio
   private pcmToAudioBuffer(data: Uint8Array, ctx: AudioContext): AudioBuffer {
-    // Gemini always sends 24000Hz mono.
-    // Creating a buffer with 24000Hz on a 48000Hz context is perfectly valid.
-    // The browser handles the playback rate conversion automatically.
+    // Gemini 2.5 Flash TTS sends 24kHz Mono PCM
     const sampleRate = 24000; 
     const numChannels = 1;    
-    
-    // Calculate 16-bit samples
     const byteLength = data.length;
-    // Ensure even length for 16-bit
     const adjustedLength = byteLength % 2 === 0 ? byteLength : byteLength - 1;
-    
     const dataView = new DataView(data.buffer, data.byteOffset, adjustedLength);
     const numSamples = adjustedLength / 2;
     
@@ -126,9 +130,7 @@ export class VoiceService {
     const channelData = buffer.getChannelData(0);
 
     for (let i = 0; i < numSamples; i++) {
-      // Read Int16 Little Endian
       const sample = dataView.getInt16(i * 2, true);
-      // Normalize to Float32 [-1.0, 1.0]
       channelData[i] = sample < 0 ? sample / 32768 : sample / 32767;
     }
     
@@ -143,17 +145,13 @@ export class VoiceService {
       } catch(e) {}
       this.currentSource = null;
     }
-    if (this.gainNode) {
-      try {
-        this.gainNode.disconnect();
-      } catch (e) {}
-      this.gainNode = null;
-    }
   }
 
   startListening(onResult: (text: string, isFinal: boolean) => void, onError: () => void) {
+    if (!this.recognition) this.initRecognition();
+
     if (!this.recognition) {
-      alert("Speech recognition not supported.");
+      alert("Voice input not supported on this browser.");
       onError();
       return;
     }
@@ -161,42 +159,32 @@ export class VoiceService {
     try {
         this.recognition.start();
     } catch (e) {
-        // Already started
+        console.log("Recognition already started");
     }
 
     this.recognition.onresult = (event: any) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-
+      let interim = '';
+      let final = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
-        }
+        if (event.results[i].isFinal) final += event.results[i][0].transcript;
+        else interim += event.results[i][0].transcript;
       }
-
-      if (finalTranscript) {
-        onResult(finalTranscript, true);
+      if (final) {
+        onResult(final, true);
         this.recognition.stop();
-      } else if (interimTranscript) {
-        onResult(interimTranscript, false);
+      } else if (interim) {
+        onResult(interim, false);
       }
     };
 
     this.recognition.onerror = (event: any) => {
-      if (event.error === 'no-speech') return; 
-      // console.error("Speech error", event);
-      // Silent fail or retry logic can be added here
-      onError();
+      if (event.error !== 'no-speech') onError();
     };
   }
 
   stopListening() {
     if (this.recognition) {
-      try {
-        this.recognition.stop();
-      } catch(e) {}
+      try { this.recognition.stop(); } catch(e) {}
     }
   }
 }
