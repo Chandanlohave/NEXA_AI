@@ -20,11 +20,11 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState;
+  public state: ErrorBoundaryState = { hasError: false, error: null };
+  declare props: Readonly<ErrorBoundaryProps>;
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -87,7 +87,9 @@ const mount = () => {
       const bootloader = document.getElementById('bootloader');
       if (bootloader) {
           bootloader.style.opacity = '0';
-          setTimeout(() => bootloader.style.display = 'none', 500);
+          setTimeout(() => {
+              if (bootloader) bootloader.style.display = 'none';
+          }, 500);
       }
 
       // 2. Mount React
