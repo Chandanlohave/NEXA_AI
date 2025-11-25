@@ -1,4 +1,4 @@
-import React, { ReactNode, ErrorInfo } from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
@@ -24,7 +24,7 @@ interface ErrorBoundaryState {
 }
 
 // ERROR BOUNDARY COMPONENT
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -42,7 +42,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             backgroundColor: '#000', 
             color: '#0ff', 
             height: '100vh', 
-            width: '100vw',
+            width: '100vw', 
             display: 'flex', 
             flexDirection: 'column', 
             alignItems: 'center', 

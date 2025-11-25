@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { NexaState, UserProfile, UserRole } from './types';
 import { generateTextResponse, generateSpeech } from './services/geminiService';
@@ -31,6 +32,12 @@ const XIcon = () => (
 const TrashIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
   </svg>
 );
 
@@ -82,8 +89,28 @@ export default function App() {
   const [tempHudSpeed, setTempHudSpeed] = useState(1);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [applyStatus, setApplyStatus] = useState<'IDLE' | 'APPLIED'>('IDLE');
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
   
   const introPlayedRef = useRef(false);
+
+  // PWA Install Prompt Listener
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
 
   useEffect(() => {
     const savedUser = storageService.getCurrentUser();
@@ -99,21 +126,20 @@ export default function App() {
     }
   }, [showSettings, user]);
 
+  // --- NEW INTRO LOGIC ---
   useEffect(() => {
     if (user && !introPlayedRef.current) {
         introPlayedRef.current = true;
         const performIntro = async () => {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            const hr = new Date().getHours();
-            let greeting = "Good morning";
-            if (hr >= 12 && hr < 17) greeting = "Good afternoon";
-            if (hr >= 17) greeting = "Good evening";
-
+            // Wait briefly for UI to mount
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
             let introText = "";
             if (user.role === UserRole.ADMIN) {
-                introText = `मैं Nexa हूँ. ${greeting}, Chandan sir. System online.`;
+                // Short, Cool Intro for Admin
+                introText = `Welcome back, Sir. NEXA online.`;
             } else {
-                introText = `मैं Nexa हूँ. ${greeting}! System ready.`;
+                introText = `NEXA is ready. Hello there!`;
             }
             await speakResponse(introText);
         };
@@ -122,7 +148,7 @@ export default function App() {
   }, [user]);
 
   const speakResponse = async (text: string) => {
-    // Generate Audio first
+    // Generate Audio
     const audioData = await generateSpeech(text);
     
     if (audioData) {
@@ -138,11 +164,11 @@ export default function App() {
         () => {
           // ON END
           setNexaState(NexaState.IDLE);
-          setShowChat(false); // Hide chat after speech ends
+          setShowChat(false); 
         }
       );
     } else {
-      // Fallback if audio fails
+      // Fallback
       setNexaState(NexaState.SPEAKING);
       setCurrentText(text);
       setIsUserText(false);
@@ -155,7 +181,6 @@ export default function App() {
   };
 
   const toggleMicInteraction = () => {
-    // If already active, stop
     if (nexaState === NexaState.LISTENING) {
        voiceService.stopListening();
        setNexaState(NexaState.IDLE);
@@ -171,17 +196,18 @@ export default function App() {
     if (nexaState !== NexaState.IDLE) return;
 
     // Start Listening
-    setCurrentText("Initializing Audio Input...");
+    setCurrentText("");
     setIsUserText(true);
-    setShowChat(true);
+    setShowChat(false); // Hide chat while listening for cleaner UI
     setNexaState(NexaState.LISTENING);
 
     voiceService.startListening(
       async (text, isFinal) => {
-        setCurrentText(text);
         if (isFinal && user) {
-            setNexaState(NexaState.THINKING);
+            setNexaState(NexaState.THINKING); // Show Thinking Yellow
+            setCurrentText(text);
             setIsUserText(true);
+            setShowChat(true);
             
             // Generate Response
             const response = await generateTextResponse(text, user);
@@ -197,6 +223,8 @@ export default function App() {
             // Save to Memory
             storageService.saveChat(user, { text: text, sender: 'user', timestamp: Date.now() });
             storageService.saveChat(user, { text: response.text, sender: 'nexa', timestamp: Date.now() });
+        } else {
+           // Live transcript (optional update)
         }
       },
       () => {
@@ -215,7 +243,7 @@ export default function App() {
     setUser(null);
     setNexaState(NexaState.IDLE);
     setShowSettings(false);
-    introPlayedRef.current = false; // Reset intro for next login
+    introPlayedRef.current = false;
   };
 
   const handleApplyConfig = () => {
@@ -225,24 +253,21 @@ export default function App() {
   };
 
   const handleDeleteUser = (mobile: string) => {
-    if (confirm(`Are you sure you want to delete user ${mobile}?`)) {
+    if (confirm(`Delete user ${mobile}?`)) {
         storageService.deleteUser(mobile);
         setAllUsers(storageService.getAllUsers());
     }
   };
 
-  // --- RENDER ---
-
-  // 1. LOGIN SCREEN
   if (!user) {
     return <LoginPanel onLogin={handleLogin} />;
   }
 
-  // 2. MAIN HUD SCREEN - Using dvh for android sizing
+  // --- MAIN HUD SCREEN ---
   return (
     <div className="relative h-[100dvh] w-full flex flex-col items-center justify-between p-4 bg-transparent safe-area-inset overflow-hidden">
        
-       {/* SETTINGS BUTTON (Top Right) */}
+       {/* SETTINGS BUTTON */}
        <button 
          onClick={() => setShowSettings(true)}
          className="absolute top-4 right-4 z-40 text-cyan-500 hover:text-cyan-300 opacity-60 hover:opacity-100 transition-opacity"
@@ -252,7 +277,7 @@ export default function App() {
 
        {/* SETTINGS MODAL */}
        {showSettings && (
-         <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-fadeIn">
+         <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
             <div className="w-full max-w-md bg-nexa-panel border border-cyan-500/30 p-6 shadow-[0_0_50px_rgba(41,223,255,0.1)] relative">
                 <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XIcon /></button>
                 
@@ -261,89 +286,112 @@ export default function App() {
                 </h2>
 
                 <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-                    {/* PROFILE INFO */}
-                    <div className="bg-cyan-950/20 p-4 border-l-2 border-cyan-500">
-                        <p className="text-xs text-cyan-600 uppercase tracking-widest">Identity</p>
-                        <p className="text-lg text-white font-mono">{user.name}</p>
-                        <p className="text-sm text-cyan-300 font-mono">{user.mobile}</p>
-                        <span className="inline-block mt-2 px-2 py-0.5 bg-cyan-900/50 text-[10px] text-cyan-400 border border-cyan-700">{user.role}</span>
-                    </div>
+                   {/* INSTALL APP BUTTON (PWA) */}
+                   {installPrompt && (
+                       <div className="bg-cyan-900/20 border border-cyan-500/40 p-4 flex items-center justify-between animate-pulse">
+                          <div>
+                             <div className="text-cyan-300 text-xs font-bold tracking-widest mb-1">SYSTEM UPDATE</div>
+                             <div className="text-[10px] text-cyan-500/80">Install NEXA Native App</div>
+                          </div>
+                          <button 
+                             onClick={handleInstallClick}
+                             className="bg-cyan-500/20 border border-cyan-500 text-cyan-300 px-3 py-2 text-xs font-bold flex items-center gap-2 hover:bg-cyan-500/40"
+                          >
+                             <DownloadIcon /> INSTALL
+                          </button>
+                       </div>
+                   )}
 
-                    {/* ADMIN ONLY CONTROLS */}
-                    {user.role === UserRole.ADMIN && (
-                        <>
-                           {/* Speed Control */}
-                           <div className="space-y-2">
-                               <label className="text-xs text-cyan-500 uppercase tracking-widest flex justify-between">
-                                  <span>HUD Rotation Speed</span>
-                                  <span>{tempHudSpeed}x</span>
-                               </label>
-                               <input 
-                                 type="range" min="0.5" max="5" step="0.5" 
-                                 value={tempHudSpeed} 
-                                 onChange={(e) => setTempHudSpeed(parseFloat(e.target.value))}
-                                 className="w-full h-1 bg-cyan-900 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-cyan-400 [&::-webkit-slider-thumb]:rounded-full"
-                               />
-                               <button 
-                                 onClick={handleApplyConfig}
-                                 className={`w-full py-2 text-xs font-bold tracking-widest border ${applyStatus === 'APPLIED' ? 'border-green-500 text-green-400 bg-green-900/20' : 'border-cyan-500 text-cyan-400 hover:bg-cyan-900/20'} transition-all`}
-                               >
-                                 {applyStatus === 'APPLIED' ? 'CONFIGURATION UPDATED' : 'APPLY CONFIG'}
-                               </button>
-                           </div>
+                   <div className="flex items-center justify-between">
+                      <div className="text-gray-400 text-xs tracking-widest">IDENTITY</div>
+                      <div className="text-white font-mono">{user.name}</div>
+                   </div>
+                   <div className="flex items-center justify-between">
+                      <div className="text-gray-400 text-xs tracking-widest">MOBILE</div>
+                      <div className="text-white font-mono">{user.mobile}</div>
+                   </div>
 
-                           {/* User Database */}
-                           <div className="space-y-3">
-                               <p className="text-xs text-red-400 uppercase tracking-widest border-b border-red-900/30 pb-1">User Database</p>
-                               {allUsers.length === 0 && <p className="text-xs text-gray-600 italic">No registered users.</p>}
-                               {allUsers.map(u => (
-                                   <div key={u.mobile} className="flex items-center justify-between bg-black/40 p-2 border border-gray-800">
-                                       <div>
-                                           <p className="text-sm text-gray-300 font-mono">{u.name}</p>
-                                           <p className="text-[10px] text-gray-500">{u.mobile} | {u.role}</p>
-                                       </div>
-                                       {u.mobile !== 'ADMIN' && (
-                                           <button onClick={() => handleDeleteUser(u.mobile)} className="text-red-500 hover:bg-red-900/20 p-2 rounded"><TrashIcon /></button>
-                                       )}
-                                   </div>
-                               ))}
+                   {/* ADMIN CONTROLS */}
+                   {user.role === UserRole.ADMIN && (
+                     <div className="mt-8 border-t border-cyan-900/50 pt-4 space-y-4">
+                        <div className="text-red-400 text-xs font-bold tracking-[0.2em] mb-2">SYSTEM OVERRIDE</div>
+                        
+                        {/* SPEED CONTROL */}
+                        <div className="space-y-2">
+                           <div className="flex justify-between text-[10px] text-cyan-600 uppercase">
+                              <span>HUD Rotation Speed</span>
+                              <span>{tempHudSpeed.toFixed(1)}x</span>
                            </div>
-                        </>
-                    )}
+                           <input 
+                             type="range" min="0.2" max="3" step="0.1" 
+                             value={tempHudSpeed} 
+                             onChange={(e) => setTempHudSpeed(parseFloat(e.target.value))}
+                             className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                           />
+                        </div>
+                        
+                        <button 
+                           onClick={handleApplyConfig}
+                           className={`w-full py-3 text-xs font-bold tracking-[0.2em] border transition-all ${applyStatus === 'APPLIED' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-cyan-900/20 border-cyan-800 text-cyan-500 hover:bg-cyan-900/40 hover:border-cyan-500'}`}
+                        >
+                           {applyStatus === 'APPLIED' ? 'CONFIGURATION UPDATED' : 'APPLY CONFIG'}
+                        </button>
+
+                        {/* USER DB */}
+                        <div className="mt-6">
+                            <div className="text-[10px] text-gray-500 tracking-widest mb-2">REGISTERED IDENTITIES</div>
+                            <div className="space-y-2">
+                                {allUsers.map(u => (
+                                    <div key={u.mobile} className="flex items-center justify-between bg-black/40 p-2 border border-gray-800">
+                                        <div className="text-xs text-gray-300">
+                                            <span className="text-cyan-700 mr-2">[{u.role === UserRole.ADMIN ? 'ADM' : 'USR'}]</span>
+                                            {u.name}
+                                        </div>
+                                        {u.role !== UserRole.ADMIN && (
+                                            <button onClick={() => handleDeleteUser(u.mobile)} className="text-red-900 hover:text-red-500"><TrashIcon /></button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                     </div>
+                   )}
                 </div>
 
                 <button 
                   onClick={handleLogout}
-                  className="w-full mt-6 py-3 border border-red-500/50 text-red-500 hover:bg-red-900/20 hover:text-red-400 font-bold tracking-[0.2em] text-sm transition-all shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                  className="w-full mt-8 bg-red-900/10 border border-red-900/50 text-red-800 hover:text-red-500 hover:bg-red-900/20 py-3 text-xs font-bold tracking-[0.3em] transition-all"
                 >
-                  SYSTEM LOGOUT
+                  TERMINATE SESSION
                 </button>
             </div>
          </div>
        )}
 
-       {/* TOP SECTION: HUD (40%) - Smaller Scale for Mobile */}
-       <div className="flex-[0.4] w-full flex items-center justify-center scale-50 transition-transform duration-500 origin-center">
-          <HUD state={nexaState} speed={hudSpeed} />
+       {/* TOP SECTION: HUD (Scaled down for mobile) */}
+       <div className="flex-1 w-full flex items-center justify-center relative mt-12 md:mt-0">
+          <div className="scale-50 md:scale-100 transform transition-transform duration-500">
+             <HUD state={nexaState} speed={hudSpeed} />
+          </div>
        </div>
 
-       {/* MIDDLE SECTION: CHAT (35%) */}
-       <div className="flex-[0.35] w-full flex items-center justify-center px-4">
+       {/* MIDDLE SECTION: CHAT BUBBLE */}
+       <div className="w-full flex justify-center absolute top-[42%] md:top-[45%] left-0 px-6 z-30 pointer-events-none">
           <ChatInterface 
-            text={currentText}
-            isUser={isUserText}
-            isVisible={showChat}
+            text={currentText} 
+            isUser={isUserText} 
+            isVisible={showChat} 
             state={nexaState}
-            userRole={user.role}
+            userRole={user ? user.role : UserRole.USER}
           />
        </div>
 
-       {/* BOTTOM SECTION: MIC (25%) */}
-       <div className="flex-[0.25] w-full flex items-center justify-center pb-8">
+       {/* BOTTOM SECTION: MIC (Arc Reactor) */}
+       <div className="h-1/4 w-full flex items-center justify-center pb-8">
           <HoloMicButton 
-             active={nexaState === NexaState.LISTENING} 
-             state={nexaState}
-             onClick={toggleMicInteraction} 
+            active={nexaState === NexaState.LISTENING || nexaState === NexaState.SPEAKING} 
+            state={nexaState}
+            onClick={toggleMicInteraction}
           />
        </div>
 

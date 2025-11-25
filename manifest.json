@@ -1,6 +1,14 @@
+
 {
   "short_name": "NEXA",
-  "name": "NEXA AI Assistant",
+  "name": "NEXA AI System",
+  "description": "Futuristic AI Assistant with Jarvis-style HUD",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["productivity", "utilities", "artificial_intelligence"],
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3616/3616927.png",
@@ -15,9 +23,11 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "/",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#000000",
-  "orientation": "portrait"
+  "shortcuts": [
+    {
+      "name": "Open Chat",
+      "url": "/",
+      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/3616/3616927.png", "sizes": "96x96" }]
+    }
+  ]
 }
