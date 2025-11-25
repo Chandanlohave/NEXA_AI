@@ -16,13 +16,15 @@ const HUD: React.FC<HUDProps> = ({ state, speed }) => {
     primaryColor = '#f59e0b'; // Amber
   }
 
+  // Pulse Animation for Speaking
+  const isSpeaking = state === NexaState.SPEAKING;
+
   // Calculate durations based on speed multiplier
-  // Default speed = 1. Higher speed = faster animation (lower duration)
   const slowDur = 60 / speed;
   const medDur = 40 / speed;
   const fastDur = 20 / speed;
 
-  // Inject styles for strictly linear animation
+  // Inject styles for animations
   const styles = `
     @keyframes spin-linear {
       from { transform: rotate(0deg); }
@@ -31,6 +33,10 @@ const HUD: React.FC<HUDProps> = ({ state, speed }) => {
     @keyframes spin-linear-reverse {
       from { transform: rotate(360deg); }
       to { transform: rotate(0deg); }
+    }
+    @keyframes pulse-speak {
+      0%, 100% { filter: drop-shadow(0 0 5px ${primaryColor}); opacity: 1; }
+      50% { filter: drop-shadow(0 0 20px ${primaryColor}); opacity: 0.8; }
     }
     .hud-spin-slow {
       animation: spin-linear ${slowDur}s linear infinite;
@@ -44,14 +50,17 @@ const HUD: React.FC<HUDProps> = ({ state, speed }) => {
       animation: spin-linear ${fastDur}s linear infinite;
       transform-origin: center;
     }
+    .speaking-pulse {
+      animation: pulse-speak 1.5s ease-in-out infinite;
+    }
   `;
 
   return (
     <div className="relative w-full h-full flex items-center justify-center pointer-events-none select-none">
       <style>{styles}</style>
       
-      {/* Container - Reduced Size */}
-      <div className="relative w-[260px] h-[260px] md:w-[320px] md:h-[320px]">
+      {/* Container - Further Reduced Size */}
+      <div className="relative w-[220px] h-[220px] md:w-[280px] md:h-[280px]">
         
         <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 500 500">
           <defs>
@@ -107,15 +116,20 @@ const HUD: React.FC<HUDProps> = ({ state, speed }) => {
              <path d="M 130,250 A 120,120 0 0,1 150,170" fill="none" stroke={primaryColor} strokeWidth="6" filter="url(#glow-soft)" />
           </g>
 
-          {/* --- LAYER 4: CENTER CORE (Static framing for Logo) --- */}
-          <g>
+          {/* --- LAYER 4: CENTER CORE (Logo + Status) --- */}
+          <g className={isSpeaking ? "speaking-pulse" : ""}>
              {/* Static Circle Framing Logo */}
              <circle cx="250" cy="250" r="95" fill="none" stroke={primaryColor} strokeWidth="2" filter="url(#glow-soft)" />
              <circle cx="250" cy="250" r="88" fill="none" stroke={primaryColor} strokeWidth="1" opacity="0.5" />
 
-             {/* MAIN TEXT (Static) */}
-             <text x="250" y="268" textAnchor="middle" fill={primaryColor} fontSize="46" fontFamily="Orbitron" fontWeight="900" letterSpacing="3" filter="url(#glow-soft)">
+             {/* MAIN TEXT */}
+             <text x="250" y="260" textAnchor="middle" fill={primaryColor} fontSize="46" fontFamily="Orbitron" fontWeight="900" letterSpacing="3" filter="url(#glow-soft)">
                NEXA
+             </text>
+             
+             {/* STATUS TEXT (Below Logo) */}
+             <text x="250" y="295" textAnchor="middle" fill={primaryColor} fontSize="14" fontFamily="Rajdhani" fontWeight="bold" letterSpacing="6" opacity="0.9">
+                {state}
              </text>
           </g>
 

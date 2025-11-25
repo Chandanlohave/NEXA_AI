@@ -10,9 +10,24 @@ import ChatInterface from './components/ChatInterface';
 import LoginPanel from './components/LoginPanel';
 
 // --- ICONS ---
-const MicIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+
+// NEW: Futuristic Geometric Mic
+const FuturisticMicIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" opacity="0.9"/>
+    <path d="M19 10a1 1 0 0 0-2 0v1a5 5 0 0 1-10 0v-1a1 1 0 0 0-2 0v1a7 7 0 0 0 6 6.92V21H9a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2h-2v-3.08A7 7 0 0 0 19 11v-1Z"/>
+    <rect x="11" y="4" width="2" height="6" rx="1" fill="#000" fillOpacity="0.3"/>
+  </svg>
+);
+
+// Icon for when Nexa is speaking (Waveform)
+const AudioWaveIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+    <path d="M12 3v18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    <path d="M6 8v8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    <path d="M18 8v8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    <path d="M2 11v2" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    <path d="M22 11v2" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
   </svg>
 );
 
@@ -42,37 +57,60 @@ const DownloadIcon = () => (
 );
 
 // HOLOGRAPHIC BUTTON
-const HoloMicButton = ({ active, state, onClick }: { active: boolean, state: NexaState, onClick: () => void }) => {
+const HoloMicButton = ({ state, onClick }: { state: NexaState, onClick: () => void }) => {
   let mainColor = 'text-cyan-400';
   let borderColor = 'border-cyan-500';
   let shadowColor = 'shadow-cyan-500/50';
+  let bgEffect = 'bg-black/60';
+  let pulseAnimation = '';
+  let IconComponent = FuturisticMicIcon;
   
+  // STATE: LISTENING (Red, Aggressive Pulse)
   if (state === NexaState.LISTENING) {
     mainColor = 'text-red-500';
     borderColor = 'border-red-500';
-    shadowColor = 'shadow-red-500/50';
-  } else if (state === NexaState.THINKING) {
+    shadowColor = 'shadow-red-500/80';
+    bgEffect = 'bg-red-950/30';
+    // Ping creates the ripple effect
+    pulseAnimation = 'animate-pulse'; 
+  } 
+  // STATE: THINKING (Amber, Fast Spin/Fade)
+  else if (state === NexaState.THINKING) {
     mainColor = 'text-amber-400';
     borderColor = 'border-amber-400';
     shadowColor = 'shadow-amber-400/50';
+    bgEffect = 'bg-amber-950/30';
+    pulseAnimation = 'animate-pulse duration-75';
+  } 
+  // STATE: SPEAKING (Cyan, Wave Icon, Pulse)
+  else if (state === NexaState.SPEAKING) {
+    mainColor = 'text-cyan-300';
+    borderColor = 'border-cyan-400';
+    shadowColor = 'shadow-cyan-400/60';
+    IconComponent = AudioWaveIcon; // Switch to Wave icon
+    pulseAnimation = 'animate-bounce'; // Gentle bounce for audio
   }
 
   return (
     <button 
       onClick={onClick}
-      className={`relative group w-20 h-20 md:w-24 md:h-24 flex items-center justify-center transition-all duration-300 ${active ? 'scale-110' : 'hover:scale-105'} active:scale-95`}
+      className={`relative group w-20 h-20 md:w-24 md:h-24 flex items-center justify-center transition-all duration-300 active:scale-95`}
     >
-       {/* Background Ripple */}
-       <div className={`absolute inset-0 rounded-full border-2 ${borderColor} opacity-30 ${active ? 'animate-ping' : ''}`}></div>
-       <div className={`absolute inset-0 rounded-full border ${borderColor} opacity-20 scale-125`}></div>
+       {/* Background Ripple (Only visible when Listening) */}
+       {state === NexaState.LISTENING && (
+         <div className={`absolute inset-0 rounded-full border-2 ${borderColor} opacity-50 animate-ping`}></div>
+       )}
+
+       {/* Outer Static Glow Ring */}
+       <div className={`absolute inset-0 rounded-full border ${borderColor} opacity-20 scale-110 transition-colors duration-500`}></div>
        
        {/* Main Circle */}
        <div className={`
-         relative z-10 w-16 h-16 md:w-20 md:h-20 rounded-full bg-black/60 backdrop-blur-md border-2 ${borderColor}
+         relative z-10 w-16 h-16 md:w-20 md:h-20 rounded-full backdrop-blur-md border-2 ${borderColor}
          flex items-center justify-center ${mainColor} shadow-[0_0_30px_rgba(0,0,0,0.6)] ${shadowColor}
-         transition-all duration-300
+         ${bgEffect} transition-all duration-500 ${pulseAnimation}
        `}>
-          <MicIcon />
+          <IconComponent />
        </div>
     </button>
   );
@@ -87,384 +125,394 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [hudSpeed, setHudSpeed] = useState(1);
   const [tempHudSpeed, setTempHudSpeed] = useState(1);
-  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-  const [applyStatus, setApplyStatus] = useState<'IDLE' | 'APPLIED'>('IDLE');
   
   // PWA State
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
   const introPlayedRef = useRef(false);
 
-  // --- PWA LOGIC ---
+  // --- INITIALIZATION ---
   useEffect(() => {
-    // 1. Check if already installed (Standalone Mode)
-    const checkStandalone = () => {
-      const isStandalone = 
-        window.matchMedia('(display-mode: standalone)').matches || 
-        (window.navigator as any).standalone === true; // iOS fallback
+    // 1. Check Login
+    const storedUser = storageService.getCurrentUser();
+    if (storedUser) {
+      setUser(storedUser);
+    }
 
-      if (isStandalone) {
-        setIsInstalled(true);
-        setShowInstallBanner(false);
-      }
+    // 2. Check PWA Install Status
+    const checkStandalone = () => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+      setIsInstalled(isStandalone);
     };
-    
-    // Check on mount and change
     checkStandalone();
     window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
 
-    // 2. Listen for 'beforeinstallprompt'
-    const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent Chrome 67+ from automatically showing the prompt
+    // 3. Listen for Install Prompt
+    const handleBeforeInstall = (e: any) => {
       e.preventDefault();
-      console.log("Stashed Install Prompt");
-      setInstallPrompt(e);
-      
-      // Show our custom UI if not installed
+      setDeferredPrompt(e);
+      // Only show banner if not already installed
       if (!isInstalled) {
-          setShowInstallBanner(true);
+        setShowInstallBanner(true);
       }
     };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    // 3. Listen for appinstalled
+    // 4. Listen for Install Completion
     const handleAppInstalled = () => {
-      console.log("App Installed");
       setIsInstalled(true);
       setShowInstallBanner(false);
-      setInstallPrompt(null);
+      setDeferredPrompt(null);
+      console.log('NEXA System Installed Successfully');
     };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, [isInstalled]);
 
-  // Handle Install Click
-  const handleInstallClick = async () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      const choiceResult = await installPrompt.userChoice;
-      
-      console.log(`User choice: ${choiceResult.outcome}`);
-      
-      // Hide banner regardless of choice to avoid being intrusive
-      setShowInstallBanner(false);
-      
-      if (choiceResult.outcome === 'accepted') {
-        setIsInstalled(true); // Optimistic update
-        setInstallPrompt(null);
-      }
-    } else {
-      // Fallback for iOS or manual install
-      alert("To install NEXA:\nTap Share Icon -> 'Add to Home Screen'");
-    }
-  };
-
-  useEffect(() => {
-    const savedUser = storageService.getCurrentUser();
-    if (savedUser) {
-      setUser(savedUser);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (showSettings && user?.role === UserRole.ADMIN) {
-        setAllUsers(storageService.getAllUsers());
-    }
-  }, [showSettings, user]);
-
-  // --- DYNAMIC INTRO LOGIC ---
+  // --- AUTO INTRO LOGIC ---
   useEffect(() => {
     if (user && !introPlayedRef.current) {
-        introPlayedRef.current = true;
-        const performIntro = async () => {
-            // Wait for UI to settle
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // Calculate Time Greeting
-            const hour = new Date().getHours();
-            let timeGreeting = "Morning";
-            if (hour >= 12 && hour < 17) timeGreeting = "Afternoon";
-            else if (hour >= 17) timeGreeting = "Evening";
+      // Small delay to let UI settle
+      const timer = setTimeout(() => {
+         const now = new Date();
+         const hour = now.getHours();
+         let greeting = "Good morning";
+         if (hour >= 12 && hour < 17) greeting = "Good afternoon";
+         else if (hour >= 17) greeting = "Good evening";
 
-            // Determine Name
-            const targetName = user.role === UserRole.ADMIN ? "Chandan sir" : `${user.name} sir`;
+         const userName = user.role === UserRole.ADMIN ? "Chandan" : user.name;
+         
+         // Intro Text with ENGLISH Name for display
+         // "Chandan Lohave" stays in English for display
+         const introText = `मैं Nexa हूँ — आपकी Personal AI Assistant, जिसे Chandan Lohave ने design किया है. ${greeting}! लगता है आज आपका mood मेरे जैसा perfect है. बताइए ${userName} sir, मैं आपकी किस प्रकार सहायता कर सकती हूँ?`;
+         
+         // Set text to UI but DO NOT SHOW yet
+         setIsUserText(false);
+         setCurrentText(introText);
+         setShowChat(false); // Wait for audio start
+         setNexaState(NexaState.SPEAKING);
 
-            // Exact Hindi Text
-            const introText = `मैं Nexa हूँ — आपकी Personal AI Assistant, जिसे Chandan Lohave (लोहवे) ने design किया है. Good ${timeGreeting}! लगता है आज आपका mood मेरे जैसा perfect है. बताइए ${targetName}, मैं आपकी किस प्रकार सहायता कर सकती हूँ?`;
-
-            await speakResponse(introText);
-        };
-        performIntro();
+         // Speak
+         generateSpeech(introText).then(audio => {
+            if (audio) {
+                voiceService.playAudio(audio, 
+                    () => {
+                        // ON START: Show Text and Typewriter
+                        setNexaState(NexaState.SPEAKING);
+                        setShowChat(true);
+                    },
+                    () => {
+                        setNexaState(NexaState.IDLE);
+                        setShowChat(false); // Auto hide after intro
+                    }
+                );
+            } else {
+                // If audio fails, just show text briefly
+                setNexaState(NexaState.IDLE);
+                setShowChat(true);
+                setTimeout(() => setShowChat(false), 4000);
+            }
+         });
+         
+         introPlayedRef.current = true;
+      }, 1500);
+      return () => clearTimeout(timer);
     }
   }, [user]);
 
-  const speakResponse = async (text: string) => {
-    const audioData = await generateSpeech(text);
-    
-    if (audioData) {
-      voiceService.playAudio(
-        audioData, 
-        () => {
-          setNexaState(NexaState.SPEAKING);
-          setCurrentText(text);
-          setIsUserText(false);
-          setShowChat(true);
-        },
-        () => {
-          setNexaState(NexaState.IDLE);
-          setShowChat(false); 
-        }
-      );
+  // --- HANDLERS ---
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult: any) => {
+            if (choiceResult.outcome === 'accepted') {
+                setShowInstallBanner(false);
+            }
+            setDeferredPrompt(null);
+        });
     } else {
-      // Fallback if no audio
-      setNexaState(NexaState.SPEAKING);
-      setCurrentText(text);
-      setIsUserText(false);
-      setShowChat(true);
-      setTimeout(() => {
-          setNexaState(NexaState.IDLE);
-          setShowChat(false);
-      }, 4000);
+        alert("System installation instructions:\n1. Tap browser menu (⋮)\n2. Select 'Install App' or 'Add to Home Screen'");
     }
   };
 
-  const toggleMicInteraction = () => {
-    if (nexaState === NexaState.LISTENING) {
-       voiceService.stopListening();
-       setNexaState(NexaState.IDLE);
-       return;
-    }
-    
+  const handleMicClick = () => {
+    // If Speaking -> Stop Audio (Interruption)
     if (nexaState === NexaState.SPEAKING) {
         voiceService.stopAudio();
+        setNexaState(NexaState.IDLE);
+        setShowChat(false);
+        return;
+    }
+
+    // If Listening -> Stop Listening (Cancel)
+    if (nexaState === NexaState.LISTENING) {
+        voiceService.stopListening();
         setNexaState(NexaState.IDLE);
         return;
     }
 
-    if (nexaState !== NexaState.IDLE) return;
-
-    setCurrentText("");
-    setIsUserText(true);
-    setShowChat(false);
+    // If Idle -> Start Listening
     setNexaState(NexaState.LISTENING);
-
+    setCurrentText("");
+    setShowChat(false);
+    
     voiceService.startListening(
-      async (text, isFinal) => {
-        if (isFinal && user) {
-            setNexaState(NexaState.THINKING);
+        (text, isFinal) => {
+            // Show USER text immediately
             setCurrentText(text);
             setIsUserText(true);
             setShowChat(true);
-            
-            // Generate Response
-            const response = await generateTextResponse(text, user);
-            
-            // Execute Intent
-            if (response.actionPayload.action !== 'NONE') {
-                intentService.execute(response.actionPayload);
+            if (isFinal) {
+                handleInteraction(text);
             }
-            
-            // Speak
-            await speakResponse(response.text);
-            
-            // Save Memory
-            const timestamp = Date.now();
-            storageService.saveChat(user, { text: text, sender: 'user', timestamp });
-            storageService.saveChat(user, { text: response.text, sender: 'nexa', timestamp: timestamp + 100 });
-            
-            // RELOAD USER FROM STORAGE TO ENSURE MEMORY IS SYNCED
-            const updatedUser = storageService.getCurrentUser();
-            if (updatedUser) {
-              setUser(updatedUser);
-            }
+        },
+        () => {
+            // Error or Stop
+            setNexaState(NexaState.IDLE);
+            setShowChat(false);
         }
-      },
-      () => {
-          setNexaState(NexaState.IDLE);
-          setShowChat(false);
-      }
     );
   };
 
+  const handleInteraction = async (inputText: string) => {
+    if (!user) return;
+    
+    // Switch to Thinking
+    setNexaState(NexaState.THINKING);
+    setShowChat(false); // Hide chat while thinking
+
+    // 1. Save User Message
+    storageService.saveChat(user, { text: inputText, sender: 'user', timestamp: Date.now() });
+    
+    // 2. Generate AI Response
+    const response = await generateTextResponse(inputText, user);
+    
+    // 3. Save AI Message
+    storageService.saveChat(user, { text: response.text, sender: 'nexa', timestamp: Date.now() });
+
+    // 4. Update User Context (Memory Sync)
+    const updatedUser = storageService.getCurrentUser();
+    if (updatedUser) setUser(updatedUser);
+
+    // 5. Update UI Text State (But don't show yet)
+    setIsUserText(false);
+    setCurrentText(response.text);
+    
+    // 6. Execute Actions
+    if (response.actionPayload.action !== 'NONE') {
+        intentService.execute(response.actionPayload);
+    }
+
+    // 7. Speak and Show Text
+    if (response.text) {
+        const audio = await generateSpeech(response.text);
+        if (audio) {
+            voiceService.playAudio(audio,
+                () => {
+                    // Audio Started: SHOW TEXT NOW
+                    setNexaState(NexaState.SPEAKING);
+                    setShowChat(true);
+                },
+                () => {
+                    // Audio Ended
+                    setNexaState(NexaState.IDLE);
+                    setShowChat(false);
+                }
+            );
+        } else {
+            // Fallback if no audio (show text briefly)
+            setNexaState(NexaState.IDLE);
+            setShowChat(true);
+            setTimeout(() => setShowChat(false), 3000);
+        }
+    } else {
+        setNexaState(NexaState.IDLE);
+        setShowChat(false);
+    }
+  };
+
   const handleLogin = (u: UserProfile) => {
-    setUser(u);
+      setUser(u);
+      introPlayedRef.current = false; // Reset intro for new login
   };
 
   const handleLogout = () => {
-    storageService.logout();
-    setUser(null);
-    setNexaState(NexaState.IDLE);
-    setShowSettings(false);
-    introPlayedRef.current = false;
+      storageService.logout();
+      setUser(null);
+      setShowSettings(false);
+      window.location.reload();
   };
 
-  const handleApplyConfig = () => {
-    setHudSpeed(tempHudSpeed);
-    setApplyStatus('APPLIED');
-    setTimeout(() => setApplyStatus('IDLE'), 2000);
+  const deleteUser = (mobile: string) => {
+     storageService.deleteUser(mobile);
+     alert("User Identity Erased.");
+     // Force refresh settings UI
+     setTempHudSpeed(prev => prev); 
   };
 
-  const handleDeleteUser = (mobile: string) => {
-    if (confirm(`Delete user ${mobile}?`)) {
-        storageService.deleteUser(mobile);
-        setAllUsers(storageService.getAllUsers());
-    }
+  const applyConfig = () => {
+     setHudSpeed(tempHudSpeed);
+     const btn = document.getElementById('apply-btn');
+     if(btn) {
+         const originalText = btn.innerText;
+         btn.innerText = "UPDATED";
+         btn.style.color = '#4ade80';
+         setTimeout(() => {
+             btn.innerText = originalText;
+             btn.style.color = '';
+         }, 1000);
+     }
   };
 
   if (!user) {
     return <LoginPanel onLogin={handleLogin} />;
   }
 
+  // --- MAIN UI ---
   return (
-    <div className="relative h-[100dvh] w-full flex flex-col items-center justify-between p-4 bg-transparent safe-area-inset overflow-hidden">
-       
-       <button 
-         onClick={() => setShowSettings(true)}
-         className="absolute top-4 right-4 z-40 text-cyan-500 hover:text-cyan-300 opacity-60 hover:opacity-100 transition-opacity"
-       >
-         <SettingsIcon />
-       </button>
+    <div className="relative w-full h-[100dvh] bg-black overflow-hidden flex flex-col font-tech select-none">
+      
+      {/* Background Elements */}
+      <div className="absolute inset-0 bg-jarvis-grid opacity-30 pointer-events-none"></div>
+      <div className="scanline"></div>
+      <div className="vignette"></div>
 
-       {/* --- INSTALL BANNER (NON-INTRUSIVE) --- */}
-       {showInstallBanner && !isInstalled && (
-          <div className="absolute top-16 left-4 right-4 z-30 bg-nexa-panel/90 backdrop-blur-md border border-cyan-500/30 p-3 rounded-lg flex items-center justify-between shadow-[0_0_20px_rgba(41,223,255,0.15)] animate-fadeIn">
-             <div className="flex flex-col">
-                <span className="text-cyan-400 font-futuristic text-xs tracking-wider">SYSTEM UPGRADE AVAILABLE</span>
-                <span className="text-gray-400 text-[10px] font-mono">Install NEXA Native Protocol</span>
-             </div>
-             <div className="flex gap-2">
-                <button 
-                   onClick={() => setShowInstallBanner(false)}
-                   className="px-3 py-2 text-[10px] text-gray-500 font-bold hover:text-white transition-colors"
-                >
-                   LATER
-                </button>
-                <button 
-                   onClick={handleInstallClick}
-                   className="px-4 py-2 bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-[10px] font-bold tracking-widest hover:bg-cyan-500/40 hover:text-white transition-all shadow-cyan-500/20 shadow-sm"
-                >
-                   INSTALL
-                </button>
-             </div>
-          </div>
-       )}
-
-       {showSettings && (
-         <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
-            <div className="w-full max-w-md bg-nexa-panel border border-cyan-500/30 p-6 shadow-[0_0_50px_rgba(41,223,255,0.1)] relative">
-                <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XIcon /></button>
-                
-                <h2 className="text-xl font-futuristic text-cyan-400 mb-6 tracking-widest border-b border-cyan-900 pb-2">
-                    {user.role === UserRole.ADMIN ? 'ADMIN CONSOLE' : 'USER SETTINGS'}
-                </h2>
-
-                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-                   <div className="flex items-center justify-between">
-                      <div className="text-gray-400 text-xs tracking-widest">IDENTITY</div>
-                      <div className="text-white font-mono">{user.name}</div>
-                   </div>
-                   <div className="flex items-center justify-between">
-                      <div className="text-gray-400 text-xs tracking-widest">MOBILE</div>
-                      <div className="text-white font-mono">{user.mobile}</div>
-                   </div>
-
-                   {user.role === UserRole.ADMIN && (
-                     <div className="mt-8 border-t border-cyan-900/50 pt-4 space-y-4">
-                        <div className="text-red-400 text-xs font-bold tracking-[0.2em] mb-2">SYSTEM OVERRIDE</div>
-                        
-                        <div className="space-y-2">
-                           <div className="flex justify-between text-[10px] text-cyan-600 uppercase">
-                              <span>HUD Rotation Speed</span>
-                              <span>{tempHudSpeed.toFixed(1)}x</span>
-                           </div>
-                           <input 
-                             type="range" min="0.2" max="3" step="0.1" 
-                             value={tempHudSpeed} 
-                             onChange={(e) => setTempHudSpeed(parseFloat(e.target.value))}
-                             className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                           />
-                        </div>
-                        
-                        <button 
-                           onClick={handleApplyConfig}
-                           className={`w-full py-3 text-xs font-bold tracking-[0.2em] border transition-all ${applyStatus === 'APPLIED' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-cyan-900/20 border-cyan-800 text-cyan-500 hover:bg-cyan-900/40 hover:border-cyan-500'}`}
-                        >
-                           {applyStatus === 'APPLIED' ? 'CONFIGURATION UPDATED' : 'APPLY CONFIG'}
-                        </button>
-
-                        <div className="mt-6">
-                            <div className="text-[10px] text-gray-500 tracking-widest mb-2">REGISTERED IDENTITIES</div>
-                            <div className="space-y-2">
-                                {allUsers.map(u => (
-                                    <div key={u.mobile} className="flex items-center justify-between bg-black/40 p-2 border border-gray-800">
-                                        <div className="text-xs text-gray-300">
-                                            <span className="text-cyan-700 mr-2">[{u.role === UserRole.ADMIN ? 'ADM' : 'USR'}]</span>
-                                            {u.name}
-                                        </div>
-                                        {u.role !== UserRole.ADMIN && (
-                                            <button onClick={() => handleDeleteUser(u.mobile)} className="text-red-900 hover:text-red-500"><TrashIcon /></button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                     </div>
-                   )}
+      {/* --- INSTALL BANNER (Non-Intrusive) --- */}
+      {showInstallBanner && !isInstalled && (
+        <div className="absolute top-0 left-0 w-full z-50 bg-cyan-900/90 border-b border-cyan-500 text-cyan-100 px-4 py-3 flex justify-between items-center shadow-lg animate-fadeIn backdrop-blur-md">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-black/50 rounded-lg border border-cyan-500/50">
+                    <DownloadIcon />
                 </div>
-
-                <div className="space-y-2 mt-8">
-                     {/* MANUAL INSTALL BUTTON - Only if prompt available but banner dismissed */}
-                     {!isInstalled && installPrompt && (
-                        <button 
-                           onClick={handleInstallClick}
-                           className="w-full bg-cyan-900/10 border border-cyan-900/50 text-cyan-600 hover:text-cyan-400 hover:bg-cyan-900/20 py-3 text-xs font-bold tracking-[0.2em] transition-all flex items-center justify-center gap-2"
-                        >
-                           <DownloadIcon /> INSTALL NEXA SYSTEM
-                        </button>
-                     )}
-
-                    <button 
-                    onClick={handleLogout}
-                    className="w-full bg-red-900/10 border border-red-900/50 text-red-800 hover:text-red-500 hover:bg-red-900/20 py-3 text-xs font-bold tracking-[0.3em] transition-all"
-                    >
-                    TERMINATE SESSION
-                    </button>
+                <div>
+                    <div className="text-xs font-bold tracking-widest text-cyan-400">SYSTEM UPGRADE AVAILABLE</div>
+                    <div className="text-[10px] opacity-80">Install NEXA Protocol for native performance</div>
                 </div>
             </div>
-         </div>
-       )}
+            <button 
+                onClick={handleInstallClick}
+                className="bg-cyan-500 text-black text-xs font-bold px-4 py-2 rounded tracking-widest hover:bg-cyan-400 transition-colors"
+            >
+                INSTALL
+            </button>
+        </div>
+      )}
 
-       <div className="flex-1 w-full flex items-center justify-center relative mt-12 md:mt-0">
-          <div className="scale-50 md:scale-100 transform transition-transform duration-500">
-             <HUD state={nexaState} speed={hudSpeed} />
+      {/* --- SETTINGS BUTTON --- */}
+      <div className="absolute top-6 right-6 z-40">
+        <button onClick={() => setShowSettings(true)} className="text-cyan-500/50 hover:text-cyan-400 transition-colors p-2">
+           <SettingsIcon />
+        </button>
+      </div>
+
+      {/* --- MAIN LAYOUT (FLEX COLUMN) --- */}
+      
+      {/* TOP: HUD (40%) */}
+      <div className="flex-[0.4] flex items-center justify-center relative">
+          <div className={`transition-all duration-500 ${showChat ? 'scale-90' : 'scale-100'} translate-y-8`}>
+              <HUD state={nexaState} speed={hudSpeed} />
           </div>
-       </div>
+      </div>
 
-       <div className="w-full flex justify-center absolute top-[42%] md:top-[45%] left-0 px-6 z-30 pointer-events-none">
-          <ChatInterface 
+      {/* MIDDLE: CHAT (35%) */}
+      <div className="flex-[0.35] flex items-start justify-center px-6 relative z-30 pt-4">
+         <ChatInterface 
             text={currentText} 
             isUser={isUserText} 
             isVisible={showChat} 
             state={nexaState}
-            userRole={user ? user.role : UserRole.USER}
-          />
-       </div>
+            userRole={user.role}
+         />
+      </div>
 
-       <div className="h-1/4 w-full flex items-center justify-center pb-8">
-          <HoloMicButton 
-            active={nexaState === NexaState.LISTENING || nexaState === NexaState.SPEAKING} 
-            state={nexaState}
-            onClick={toggleMicInteraction}
-          />
-       </div>
+      {/* BOTTOM: MIC (25%) */}
+      <div className="flex-[0.25] flex items-center justify-center pb-8 safe-area-inset">
+         <HoloMicButton 
+            state={nexaState} 
+            onClick={handleMicClick} 
+         />
+      </div>
 
+      {/* --- SETTINGS MODAL --- */}
+      {showSettings && (
+        <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-fadeIn">
+            <div className="w-full max-w-md border border-cyan-500/30 bg-black/80 p-6 shadow-[0_0_50px_rgba(6,182,212,0.15)] relative">
+                <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XIcon /></button>
+                
+                <h2 className="text-xl font-futuristic text-cyan-400 mb-6 tracking-widest border-b border-cyan-900 pb-2">
+                    SYSTEM CONFIG
+                </h2>
+
+                <div className="space-y-6">
+                    {/* PROFILE */}
+                    <div className="bg-cyan-900/10 p-4 border border-cyan-500/20">
+                        <div className="text-[10px] text-cyan-600 tracking-[0.2em] mb-1">CURRENT IDENTITY</div>
+                        <div className="text-white font-mono text-lg">{user.name}</div>
+                        <div className="text-xs text-gray-400 font-mono mt-1">ID: {user.mobile}</div>
+                    </div>
+
+                    {/* ADMIN CONTROLS */}
+                    {user.role === UserRole.ADMIN && (
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs text-red-400 tracking-widest block mb-2">HUD ROTATION VELOCITY</label>
+                                <input 
+                                    type="range" min="0.5" max="3" step="0.5" 
+                                    value={tempHudSpeed} 
+                                    onChange={(e) => setTempHudSpeed(parseFloat(e.target.value))}
+                                    className="w-full accent-red-500 bg-gray-800 h-1 appearance-none"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
+                                    <span>SLOW</span>
+                                    <span>{tempHudSpeed}x</span>
+                                    <span>MAX</span>
+                                </div>
+                            </div>
+
+                            <button id="apply-btn" onClick={applyConfig} className="w-full border border-red-500/50 text-red-500 py-2 text-xs tracking-[0.2em] hover:bg-red-950/30">
+                                APPLY CONFIG
+                            </button>
+
+                            <div className="pt-4 border-t border-gray-800">
+                                <div className="text-[10px] text-red-600 tracking-[0.2em] mb-3">USER DATABASE</div>
+                                <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                    {storageService.getAllUsers().map(u => (
+                                        <div key={u.mobile} className="flex justify-between items-center bg-gray-900 p-2 border-l-2 border-gray-700">
+                                            <div>
+                                                <div className="text-xs text-gray-300">{u.name}</div>
+                                                <div className="text-[10px] text-gray-600">{u.mobile}</div>
+                                            </div>
+                                            {u.role !== UserRole.ADMIN && (
+                                                <button onClick={() => deleteUser(u.mobile)} className="text-red-500 hover:text-red-300 p-1"><TrashIcon /></button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* INSTALL BUTTON */}
+                    {deferredPrompt && !isInstalled && (
+                        <button onClick={handleInstallClick} className="w-full bg-cyan-500 text-black font-bold py-3 tracking-[0.2em] text-xs hover:bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)]">
+                            INSTALL SYSTEM (NATIVE)
+                        </button>
+                    )}
+
+                    {/* LOGOUT */}
+                    <button onClick={handleLogout} className="w-full border border-gray-700 text-gray-400 py-3 text-xs tracking-[0.2em] hover:bg-gray-900 hover:text-white mt-4">
+                        TERMINATE SESSION
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

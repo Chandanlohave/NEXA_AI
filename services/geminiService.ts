@@ -164,12 +164,12 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
     
     // PHONETIC REPLACEMENT for clearer Hindi/English mix
     const phoneticText = text
-       .replace(/Lohave/gi, "लोहवे")
-       .replace(/Nexa/gi, "Nexa") // Keep English
+       .replace(/Lohave/gi, "लोहवे") // Force correct pronunciation
+       .replace(/Nexa/gi, "Nexa")
        .replace(/Chandan/gi, "Chandan");
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-native-audio-preview-09-2025",
+      model: "gemini-2.5-flash-preview-tts",
       contents: [
         {
           parts: [{ text: phoneticText }],
